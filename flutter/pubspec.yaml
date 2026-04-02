@@ -1,0 +1,47 @@
+name: visite_plus
+description: Visite+ — Guide de visite des églises
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # Navigation & deep links
+  go_router: ^13.2.0
+
+  # Backend Supabase
+  supabase_flutter: ^2.5.0
+
+  # Carte interactive (carte France + plan intérieur)
+  flutter_map: ^7.0.1
+  latlong2: ^0.9.1
+
+  # Géolocalisation
+  geolocator: ^12.0.0
+  permission_handler: ^11.3.0
+
+  # Images réseau avec cache
+  cached_network_image: ^3.3.1
+
+  # Audio guide TTS
+  flutter_tts: ^4.0.2
+
+  # Liens externes (App Store / Google Play)
+  url_launcher: ^6.2.6
+
+  # Dates & i18n
+  intl: ^0.20.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

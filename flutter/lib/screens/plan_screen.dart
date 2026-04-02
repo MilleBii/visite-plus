@@ -1,0 +1,668 @@
+import 'dart:convert';
+import 'dart:math';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../models/eglise.dart';
+import '../models/poi.dart';
+import '../services/supabase_service.dart';
+import '../config/type_config.dart';
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Positions GPS des POIs — démo Saint-Victor (mêmes que la maquette React).
+// En production : les POIs du BO seront stockés en coordonnées locales (mètres)
+// dans la colonne position[] après placement sur le plan Leaflet CRS.Simple.
+// ──────────────────────────────────────────────────────────────────────────────
+const _poisGps = [
+  [47.22527, 6.11750], // vitrail
+  [47.22535, 6.11755], // statue
+  [47.22537, 6.11775], // tableau
+  [47.22543, 6.11785], // demarche
+];
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Système de coordonnées locales (GPS → mètres → canvas)
+// ──────────────────────────────────────────────────────────────────────────────
+class _CoordSystem {
+  final double latC, lonC, cosLat;
+  final double angleDeg;
+
+  _CoordSystem({
+    required this.latC,
+    required this.lonC,
+    required this.cosLat,
+    required this.angleDeg,
+  });
+
+  /// GPS [lat, lon] → coordonnées locales en mètres (repère tourné)
+  Offset toLocal(double lat, double lon) {
+    final x = (lon - lonC) * cosLat * 111320;
+    final y = (lat - latC) * 111320;
+    final a = angleDeg * pi / 180;
+    return Offset(
+      x * sin(a) + y * cos(a),
+      x * cos(a) - y * sin(a),
+    );
+  }
+
+  factory _CoordSystem.fromFootprint(List<List<double>> gps, double angleDeg) {
+    final latC = gps.map((p) => p[0]).reduce((a, b) => a + b) / gps.length;
+    final lonC = gps.map((p) => p[1]).reduce((a, b) => a + b) / gps.length;
+    final cosLat = cos(latC * pi / 180);
+    return _CoordSystem(latC: latC, lonC: lonC, cosLat: cosLat, angleDeg: angleDeg);
+  }
+}
+
+/// Normalise une liste de points locaux vers des coordonnées canvas (0..W, 0..H).
+/// L'axe Y est inversé (local Y↑ → canvas Y↓).
+class _CanvasMapper {
+  final double minX, maxX, minY, maxY;
+  final double scale;
+  final double padding;
+  final double canvasWidth, canvasHeight;
+
+  _CanvasMapper._({
+    required this.minX, required this.maxX,
+    required this.minY, required this.maxY,
+    required this.scale, required this.padding,
+    required this.canvasWidth, required this.canvasHeight,
+  });
+
+  factory _CanvasMapper.from(List<Offset> points, {double padding = 40}) {
+    final xs = points.map((p) => p.dx);
+    final ys = points.map((p) => p.dy);
+    final minX = xs.reduce(min);
+    final maxX = xs.reduce(max);
+    final minY = ys.reduce(min);
+    final maxY = ys.reduce(max);
+    // Taille virtuelle canvas : 800 × 600 points
+    const virtualW = 800.0;
+    const virtualH = 600.0;
+    final scaleX = (virtualW - padding * 2) / (maxX - minX).clamp(0.001, double.infinity);
+    final scaleY = (virtualH - padding * 2) / (maxY - minY).clamp(0.001, double.infinity);
+    final scale = min(scaleX, scaleY);
+    final usedW = (maxX - minX) * scale + padding * 2;
+    final usedH = (maxY - minY) * scale + padding * 2;
+    return _CanvasMapper._(
+      minX: minX, maxX: maxX, minY: minY, maxY: maxY,
+      scale: scale, padding: padding,
+      canvasWidth: usedW, canvasHeight: usedH,
+    );
+  }
+
+  Offset toCanvas(Offset local) => Offset(
+    (local.dx - minX) * scale + padding,
+    (maxY - local.dy) * scale + padding, // flip Y
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Plan Screen
+// ──────────────────────────────────────────────────────────────────────────────
+class PlanScreen extends StatefulWidget {
+  final String slug;
+
+  const PlanScreen({super.key, required this.slug});
+
+  @override
+  State<PlanScreen> createState() => _PlanScreenState();
+}
+
+class _PlanScreenState extends State<PlanScreen> {
+  Eglise? _eglise;
+  List<Poi> _pois = [];
+  bool _loading = true;
+  Poi? _poiSelectionne;
+  double _angle = 322; // angle par défaut Saint-Victor; remplacé par eglise.osmRotationAngle en prod
+
+  late _CoordSystem _coords;
+  late _CanvasMapper _mapper;
+  List<Offset> _footprintLocal = [];
+  List<Offset> _footprintCanvas = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final eglise = await SupabaseService.fetchEgliseBySlug(widget.slug);
+    if (!mounted) return;
+    final pois = eglise != null ? await SupabaseService.fetchPois(eglise.id) : <Poi>[];
+    if (!mounted) return;
+
+    setState(() {
+      _eglise = eglise;
+      _pois = pois;
+      _angle = eglise?.osmRotationAngle ?? 322;
+      _loading = false;
+    });
+    _buildCoords();
+  }
+
+  void _buildCoords() {
+    final raw = _eglise?.osmFootprintJson;
+    if (raw == null) return;
+    final decoded = (jsonDecode(raw) as List)
+        .map((p) => [((p[0] as num).toDouble()), ((p[1] as num).toDouble())])
+        .toList();
+    _coords = _CoordSystem.fromFootprint(decoded, _angle);
+    _footprintLocal = decoded.map((p) => _coords.toLocal(p[0], p[1])).toList();
+    _mapper = _CanvasMapper.from(_footprintLocal);
+    _footprintCanvas = _footprintLocal.map(_mapper.toCanvas).toList();
+  }
+
+  void _onAngleChanged(double delta) {
+    setState(() => _angle = (_angle + delta) % 360);
+    _buildCoords();
+  }
+
+  Offset _poiCanvasPosition(Poi poi) {
+    // Les positions DB ([120, 280]...) sont des valeurs mockées Leaflet-pixels,
+    // pas des coordonnées locales en mètres. On utilise les GPS de démo à la
+    // place (même logique que la maquette React). En prod, le BO sauvegardera
+    // de vraies coordonnées locales issues de Leaflet CRS.Simple.
+    final idx = _pois.indexOf(poi);
+    if (idx >= 0 && idx < _poisGps.length) {
+      final gps = _poisGps[idx];
+      final local = _coords.toLocal(gps[0], gps[1]);
+      return _mapper.toCanvas(local);
+    }
+    // Fallback : centroïde du plan
+    return Offset(_mapper.canvasWidth / 2, _mapper.canvasHeight / 2);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_footprintCanvas.isEmpty) return const Scaffold(body: Center(child: Text('Polygone OSM manquant pour cette église.')));
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF0EDE8),
+      body: Stack(
+        children: [
+          // ── Plan interactif ──────────────────────────────────────────────
+          Positioned.fill(
+            top: 70, // sous le header
+            child: _PlanView(
+              footprintCanvas: _footprintCanvas,
+              canvasWidth: _mapper.canvasWidth,
+              canvasHeight: _mapper.canvasHeight,
+              pois: _pois,
+              poiSelectionne: _poiSelectionne,
+              getPoiPosition: _poiCanvasPosition,
+              onPoiTap: (poi) => setState(() => _poiSelectionne = poi),
+              planImage: _eglise?.planImage,
+            ),
+          ),
+
+          // ── Header ───────────────────────────────────────────────────────
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              color: Colors.white,
+              padding: EdgeInsets.only(
+                top: MediaQuery.of(context).padding.top + 8,
+                left: 8,
+                right: 16,
+                bottom: 10,
+              ),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => context.pop(),
+                    color: const Color(0xFF1C1917),
+                  ),
+                  const SizedBox(width: 4),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Plan de l\'église',
+                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Color(0xFF1C1917)),
+                      ),
+                      Text(
+                        '${_eglise?.nom ?? ''} · OpenStreetMap',
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF78716C)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Contrôle angle (démo) ─────────────────────────────────────────
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 80,
+            right: 12,
+            child: _AngleControl(angle: _angle, onChanged: _onAngleChanged),
+          ),
+
+          // ── Légende ──────────────────────────────────────────────────────
+          if (_poiSelectionne == null)
+            Positioned(
+              bottom: MediaQuery.of(context).padding.bottom + 16,
+              left: 0,
+              right: 0,
+              child: const _Legende(),
+            ),
+
+          // ── Panneau POI bas ───────────────────────────────────────────────
+          if (_poiSelectionne != null)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: _PanneauPoiBas(
+                poi: _poiSelectionne!,
+                onFermer: () => setState(() => _poiSelectionne = null),
+                onOuvrir: () => context.push(
+                  '/eglise/${widget.slug}/poi/${_poiSelectionne!.id}',
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Widget plan avec InteractiveViewer
+// ──────────────────────────────────────────────────────────────────────────────
+class _PlanView extends StatelessWidget {
+  final List<Offset> footprintCanvas;
+  final double canvasWidth, canvasHeight;
+  final List<Poi> pois;
+  final Poi? poiSelectionne;
+  final Offset Function(Poi) getPoiPosition;
+  final void Function(Poi) onPoiTap;
+  final String? planImage;
+
+  const _PlanView({
+    required this.footprintCanvas,
+    required this.canvasWidth,
+    required this.canvasHeight,
+    required this.pois,
+    required this.poiSelectionne,
+    required this.getPoiPosition,
+    required this.onPoiTap,
+    this.planImage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final planStack = Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // Fond plan (image custom OU polygone OSM)
+        if (planImage != null)
+          Positioned.fill(
+            child: CachedNetworkImage(imageUrl: planImage!, fit: BoxFit.contain),
+          )
+        else
+          CustomPaint(
+            size: Size(canvasWidth, canvasHeight),
+            painter: _FootprintPainter(points: footprintCanvas),
+          ),
+
+        // Marqueurs POI
+        ...pois.map((poi) {
+          final pos = getPoiPosition(poi);
+          final cfg = getPoiConfig(poi.type);
+          final isSelected = poiSelectionne?.id == poi.id;
+          return Positioned(
+            left: pos.dx - 20,
+            top: pos.dy - 20,
+            child: GestureDetector(
+              onTap: () => onPoiTap(poi),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: isSelected ? cfg.color : Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: cfg.color, width: 2.5),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    cfg.emoji,
+                    style: TextStyle(fontSize: isSelected ? 16 : 14),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+
+    // LayoutBuilder pour calculer l'échelle initiale qui remplit l'espace dispo
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scaleX = constraints.maxWidth / canvasWidth;
+        final scaleY = constraints.maxHeight / canvasHeight;
+        final initialScale = min(scaleX, scaleY) * 0.92; // 92% pour un léger padding visuel
+
+        return InteractiveViewer(
+          minScale: initialScale * 0.5,
+          maxScale: 5,
+          boundaryMargin: const EdgeInsets.all(40),
+          scaleFactor: 200,
+          child: Center(
+            child: Transform.scale(
+              scale: initialScale,
+              child: SizedBox(
+                width: canvasWidth,
+                height: canvasHeight,
+                child: planStack,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// CustomPainter — polygone bâtiment
+// ──────────────────────────────────────────────────────────────────────────────
+class _FootprintPainter extends CustomPainter {
+  final List<Offset> points;
+
+  const _FootprintPainter({required this.points});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.isEmpty) return;
+
+    final fillPaint = Paint()
+      ..color = const Color(0xFFFEF3C7).withOpacity(0.6)
+      ..style = PaintingStyle.fill;
+
+    final strokePaint = Paint()
+      ..color = const Color(0xFFB7881C)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (final p in points.skip(1)) {
+      path.lineTo(p.dx, p.dy);
+    }
+    path.close();
+
+    canvas.drawPath(path, fillPaint);
+    canvas.drawPath(path, strokePaint);
+  }
+
+  @override
+  bool shouldRepaint(_FootprintPainter old) => old.points != points;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Contrôle angle (démo — BO only en prod)
+// ──────────────────────────────────────────────────────────────────────────────
+class _AngleControl extends StatelessWidget {
+  final double angle;
+  final void Function(double) onChanged;
+
+  const _AngleControl({required this.angle, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE7E5E4)),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _AngleBtn(label: '−', onTap: () => onChanged(-1)),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 36,
+            child: Text(
+              '${angle.round()}°',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF78716C)),
+            ),
+          ),
+          const SizedBox(width: 4),
+          _AngleBtn(label: '+', onTap: () => onChanged(1)),
+        ],
+      ),
+    );
+  }
+}
+
+class _AngleBtn extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _AngleBtn({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF5F5F4),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Center(
+          child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+        ),
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Légende
+// ──────────────────────────────────────────────────────────────────────────────
+class _Legende extends StatelessWidget {
+  const _Legende();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFE7E5E4)),
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: poiTypeConfig.entries
+              .map((entry) => Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: entry.value.color, width: 2),
+                          ),
+                          child: Center(
+                            child: Text(entry.value.emoji, style: const TextStyle(fontSize: 10)),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          entry.value.label,
+                          style: const TextStyle(fontSize: 11, color: Color(0xFF44403C)),
+                        ),
+                      ],
+                    ),
+                  ))
+              .toList(),
+        ),
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Panneau bas — fiche POI courte
+// ──────────────────────────────────────────────────────────────────────────────
+class _PanneauPoiBas extends StatelessWidget {
+  final Poi poi;
+  final VoidCallback onFermer;
+  final VoidCallback onOuvrir;
+
+  const _PanneauPoiBas({
+    required this.poi,
+    required this.onFermer,
+    required this.onOuvrir,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cfg = getPoiConfig(poi.type);
+    return GestureDetector(
+      onTap: onOuvrir,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -4))],
+        ),
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 16,
+          bottom: MediaQuery.of(context).padding.bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFD6D3D1),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+
+            Stack(
+              children: [
+                Row(
+                  children: [
+                    // Vignette photo
+                    if (poi.photo != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: CachedNetworkImage(
+                          imageUrl: poi.photo!,
+                          width: 72,
+                          height: 72,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    else
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF5F5F4),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(cfg.icon, color: cfg.color, size: 28),
+                      ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Badge type
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF5F5F4),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(cfg.emoji, style: const TextStyle(fontSize: 11)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  cfg.label,
+                                  style: const TextStyle(fontSize: 12, color: Color(0xFF78716C)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            poi.titre,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF1C1917),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Appuyer pour en savoir plus →',
+                            style: TextStyle(fontSize: 13, color: Color(0xFF78716C)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                // Bouton fermer
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: GestureDetector(
+                    onTap: onFermer,
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F5F4),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close, size: 14, color: Color(0xFF78716C)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
