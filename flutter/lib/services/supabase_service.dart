@@ -68,13 +68,32 @@ class SupabaseService {
   }
 
   /// Récupère une église par son slug
-  /// Note: pas encore de colonne slug en BDD, on filtre par nom calculé
+  /// Lecture directe DB pour éviter les valeurs obsolètes du cache
+  /// (ex: angle de rotation modifié depuis le BO).
   static Future<Eglise?> fetchEgliseBySlug(String slug) async {
+    final wanted = slug.trim().toLowerCase();
+
     try {
-      final all = await fetchEglises();
-      final wanted = slug.trim().toLowerCase();
+      // Chemin nominal: slug stocké en base.
+      final response = await _client
+          .from('eglises')
+          .select('*')
+          .eq('slug', wanted)
+          .maybeSingle();
+
+      if (response != null) {
+        return Eglise.fromJson(response);
+      }
+    } catch (e) {
+      print('Info fetchEgliseBySlug direct DB: $e');
+    }
+
+    // Fallback legacy: compatibilité avec anciennes données/caches.
+    try {
+      final all = await fetchEglises(ignoreCache: true);
       return all.firstWhere((e) => e.safeSlug.toLowerCase() == wanted);
-    } catch (_) {
+    } catch (e) {
+      print('Erreur fetchEgliseBySlug fallback: $e');
       return null;
     }
   }

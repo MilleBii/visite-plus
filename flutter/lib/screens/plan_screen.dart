@@ -92,7 +92,7 @@ class _CanvasMapper {
 
   Offset toCanvas(Offset local) => Offset(
     (local.dx - minX) * scale + padding,
-    (maxY - local.dy) * scale + padding, // flip Y
+    (local.dy - minY) * scale + padding,
   );
 }
 
@@ -114,11 +114,28 @@ class _PlanScreenState extends State<PlanScreen> {
   bool _loading = true;
   Poi? _poiSelectionne;
   double _angle = 322; // angle par défaut Saint-Victor; remplacé par eglise.osmRotationAngle en prod
+  static const double _polygonAngleOffsetDeg = -90;
+
+  double get _appliedAngle => ((_angle % 360) + 360) % 360;
+  double get _polygonAppliedAngle =>
+      (((_angle + _polygonAngleOffsetDeg) % 360) + 360) % 360;
 
   late _CoordSystem _coords;
   late _CanvasMapper _mapper;
   List<Offset> _footprintLocal = [];
   List<Offset> _footprintCanvas = [];
+
+  Offset _footprintCenterLocal = Offset.zero;
+
+  Offset _rotateAround(Offset point, Offset center, double angleDeg) {
+    final a = angleDeg * pi / 180;
+    final dx = point.dx - center.dx;
+    final dy = point.dy - center.dy;
+    return Offset(
+      center.dx + dx * cos(a) - dy * sin(a),
+      center.dy + dx * sin(a) + dy * cos(a),
+    );
+  }
 
   @override
   void initState() {
@@ -138,37 +155,85 @@ class _PlanScreenState extends State<PlanScreen> {
       _angle = eglise?.osmRotationAngle ?? 322;
       _loading = false;
     });
+
+    debugPrint(
+      '[PlanScreen] load slug=${widget.slug} egliseId=${eglise?.id} '
+      'angleDb=${eglise?.osmRotationAngle} angleApplied=$_appliedAngle '
+      'polygonAngleApplied=$_polygonAppliedAngle '
+      'footprintRaw=${eglise?.osmFootprintJson != null} pois=${pois.length}',
+    );
+
     _buildCoords();
   }
 
   void _buildCoords() {
     final raw = _eglise?.osmFootprintJson;
-    if (raw == null) return;
+    if (raw == null) {
+      debugPrint('[PlanScreen] buildCoords skipped: footprint null angleApplied=$_appliedAngle');
+      return;
+    }
     final decoded = (jsonDecode(raw) as List)
         .map((p) => [((p[0] as num).toDouble()), ((p[1] as num).toDouble())])
         .toList();
     _coords = _CoordSystem.fromFootprint(decoded, _angle);
-    _footprintLocal = decoded.map((p) => _coords.toLocal(p[0], p[1])).toList();
+    final baseFootprintLocal = decoded.map((p) => _coords.toLocal(p[0], p[1])).toList();
+    final minX = baseFootprintLocal.map((p) => p.dx).reduce(min);
+    final maxX = baseFootprintLocal.map((p) => p.dx).reduce(max);
+    final minY = baseFootprintLocal.map((p) => p.dy).reduce(min);
+    final maxY = baseFootprintLocal.map((p) => p.dy).reduce(max);
+    _footprintCenterLocal = Offset((minX + maxX) / 2, (minY + maxY) / 2);
+
+    _footprintLocal = baseFootprintLocal
+      .map((p) => _rotateAround(p, _footprintCenterLocal, _polygonAngleOffsetDeg))
+      .toList();
+
     _mapper = _CanvasMapper.from(_footprintLocal);
     _footprintCanvas = _footprintLocal.map(_mapper.toCanvas).toList();
-  }
 
-  void _onAngleChanged(double delta) {
-    setState(() => _angle = (_angle + delta) % 360);
-    _buildCoords();
+    if (_footprintLocal.isNotEmpty) {
+      final p = _footprintLocal.first;
+      final pCanvas = _footprintCanvas.first;
+      final pZero = _CoordSystem.fromFootprint(decoded, 0).toLocal(decoded.first[0], decoded.first[1]);
+      debugPrint(
+        '[PlanScreen] sample firstPoint local@0=(${pZero.dx.toStringAsFixed(2)},${pZero.dy.toStringAsFixed(2)}) '
+        'local@applied=(${p.dx.toStringAsFixed(2)},${p.dy.toStringAsFixed(2)}) '
+        'canvas=(${pCanvas.dx.toStringAsFixed(2)},${pCanvas.dy.toStringAsFixed(2)})',
+      );
+    }
+
+    debugPrint(
+      '[PlanScreen] buildCoords angleApplied=$_appliedAngle polygonAngleApplied=$_polygonAppliedAngle '
+      'footprintPoints=${decoded.length} '
+      'localBounds=(${_mapper.minX.toStringAsFixed(2)},${_mapper.minY.toStringAsFixed(2)})→'
+      '(${_mapper.maxX.toStringAsFixed(2)},${_mapper.maxY.toStringAsFixed(2)})',
+    );
   }
 
   Offset _poiCanvasPosition(Poi poi) {
-    // Les positions DB ([120, 280]...) sont des valeurs mockées Leaflet-pixels,
-    // pas des coordonnées locales en mètres. On utilise les GPS de démo à la
-    // place (même logique que la maquette React). En prod, le BO sauvegardera
-    // de vraies coordonnées locales issues de Leaflet CRS.Simple.
+    // Les POIs du BO sont stockés en coordonnées locales (CRS.Simple) et
+    // doivent être mappés directement sur le canvas du plan.
+    if (poi.positionX.isFinite && poi.positionY.isFinite) {
+      // Repère local BO conservé: x, y sans permutation d'axes.
+      final displayLocal = Offset(poi.positionX, poi.positionY);
+      final alignedLocal = _rotateAround(displayLocal, _footprintCenterLocal, _polygonAngleOffsetDeg);
+      final pos = _mapper.toCanvas(alignedLocal);
+      debugPrint(
+        '[PlanScreen] poi id=${poi.id} local=(${poi.positionX.toStringAsFixed(2)},${poi.positionY.toStringAsFixed(2)}) '
+        'alignedLocal=(${alignedLocal.dx.toStringAsFixed(2)},${alignedLocal.dy.toStringAsFixed(2)}) '
+        'canvas=(${pos.dx.toStringAsFixed(2)},${pos.dy.toStringAsFixed(2)}) angleApplied=$_appliedAngle polygonAngleApplied=$_polygonAppliedAngle',
+      );
+      return pos;
+    }
+
+    // Fallback legacy: anciennes données démo GPS Saint-Victor.
     final idx = _pois.indexOf(poi);
     if (idx >= 0 && idx < _poisGps.length) {
       final gps = _poisGps[idx];
-      final local = _coords.toLocal(gps[0], gps[1]);
-      return _mapper.toCanvas(local);
+      final baseLocal = _coords.toLocal(gps[0], gps[1]);
+      final alignedLocal = _rotateAround(baseLocal, _footprintCenterLocal, _polygonAngleOffsetDeg);
+      return _mapper.toCanvas(alignedLocal);
     }
+
     // Fallback : centroïde du plan
     return Offset(_mapper.canvasWidth / 2, _mapper.canvasHeight / 2);
   }
@@ -178,6 +243,9 @@ class _PlanScreenState extends State<PlanScreen> {
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     if (_footprintCanvas.isEmpty) return const Scaffold(body: Center(child: Text('Polygone OSM manquant pour cette église.')));
 
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+    final bottomPlanInset = safeBottom + 78;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF0EDE8),
       body: Stack(
@@ -185,6 +253,7 @@ class _PlanScreenState extends State<PlanScreen> {
           // ── Plan interactif ──────────────────────────────────────────────
           Positioned.fill(
             top: 70, // sous le header
+            bottom: bottomPlanInset,
             child: _PlanView(
               footprintCanvas: _footprintCanvas,
               canvasWidth: _mapper.canvasWidth,
@@ -235,13 +304,6 @@ class _PlanScreenState extends State<PlanScreen> {
                 ],
               ),
             ),
-          ),
-
-          // ── Contrôle angle (démo) ─────────────────────────────────────────
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 80,
-            right: 12,
-            child: _AngleControl(angle: _angle, onChanged: _onAngleChanged),
           ),
 
           // ── Légende ──────────────────────────────────────────────────────
@@ -413,68 +475,6 @@ class _FootprintPainter extends CustomPainter {
 // ──────────────────────────────────────────────────────────────────────────────
 // Contrôle angle (démo — BO only en prod)
 // ──────────────────────────────────────────────────────────────────────────────
-class _AngleControl extends StatelessWidget {
-  final double angle;
-  final void Function(double) onChanged;
-
-  const _AngleControl({required this.angle, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE7E5E4)),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _AngleBtn(label: '−', onTap: () => onChanged(-1)),
-          const SizedBox(width: 4),
-          SizedBox(
-            width: 36,
-            child: Text(
-              '${angle.round()}°',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF78716C)),
-            ),
-          ),
-          const SizedBox(width: 4),
-          _AngleBtn(label: '+', onTap: () => onChanged(1)),
-        ],
-      ),
-    );
-  }
-}
-
-class _AngleBtn extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-
-  const _AngleBtn({required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 24,
-        height: 24,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF5F5F4),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Center(
-          child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-        ),
-      ),
-    );
-  }
-}
-
 // ──────────────────────────────────────────────────────────────────────────────
 // Légende
 // ──────────────────────────────────────────────────────────────────────────────
