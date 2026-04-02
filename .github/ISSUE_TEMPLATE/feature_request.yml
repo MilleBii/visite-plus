@@ -1,0 +1,41 @@
+name: Feature request
+description: Propose an improvement or new feature
+title: "[Feature] "
+labels: ["type:feature", "status:backlog"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What user problem are we solving?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the expected behavior and scope.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact
+      options:
+        - High
+        - Medium
+        - Low
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: area
+    attributes:
+      label: Area
+      options:
+        - label: Web app (app/)
+        - label: Mobile Flutter (flutter/)
+        - label: Back-office
+        - label: Data/Supabase

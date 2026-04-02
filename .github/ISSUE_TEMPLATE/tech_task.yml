@@ -1,0 +1,27 @@
+name: Tech task
+description: Technical task or maintenance work
+title: "[Tech] "
+labels: ["type:tech", "status:backlog"]
+body:
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: What needs to be done?
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Technical details
+      description: Architecture, files, constraints.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: Acceptance criteria defined
+        - label: Risks identified
+        - label: Test strategy identified

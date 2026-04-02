@@ -1,0 +1,17 @@
+[
+  { "name": "type:feature", "color": "0E8A16", "description": "New feature" },
+  { "name": "type:bug", "color": "D73A4A", "description": "Bug or regression" },
+  { "name": "type:tech", "color": "5319E7", "description": "Technical task" },
+  { "name": "area:web", "color": "1D76DB", "description": "Web app" },
+  { "name": "area:mobile", "color": "0052CC", "description": "Flutter mobile app" },
+  { "name": "area:bo", "color": "0366D6", "description": "Back-office" },
+  { "name": "area:data", "color": "006B75", "description": "Supabase/data/scripts" },
+  { "name": "prio:high", "color": "B60205", "description": "High priority" },
+  { "name": "prio:medium", "color": "FBCA04", "description": "Medium priority" },
+  { "name": "prio:low", "color": "0E8A16", "description": "Low priority" },
+  { "name": "status:backlog", "color": "C2E0C6", "description": "In backlog" },
+  { "name": "status:ready", "color": "BFDADC", "description": "Ready to start" },
+  { "name": "status:in-progress", "color": "1D76DB", "description": "Work in progress" },
+  { "name": "status:review", "color": "FBCA04", "description": "In review" },
+  { "name": "status:done", "color": "0E8A16", "description": "Completed" }
+]
