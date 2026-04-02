@@ -28,27 +28,40 @@ class SupabaseService {
 
   // ── Églises ────────────────────────────────────────────────────────────────
 
-  /// Récupère toutes les églises publiées, triées par nom
+  /// Récupère toutes les églises, triées par nom
+  /// (DEBUG: pas de filtre statut pendant le dev)
   /// Utilise un cache de 5 minutes
   static Future<List<Eglise>> fetchEglises({bool ignoreCache = false}) async {
     const cacheKey = 'eglises_all';
 
     if (!ignoreCache && _isCacheValid(cacheKey, _ttlEglises)) {
-      return (_cache[cacheKey] as List<Eglise>?) ?? [];
+      final cached = (_cache[cacheKey] as List<Eglise>?) ?? [];
+      // ignore: avoid_print
+      print('✓ Eglises from cache: ${cached.length} items');
+      return cached;
     }
 
     try {
+      // ignore: avoid_print
+      print('🔄 Fetching eglises from Supabase...');
+      
+      // TEMP DEV: sans filtre statut pour tester avec les brouillons
+      // EN PROD: remetre .eq('statut', 'publié')
       final response = await _client
           .from('eglises')
           .select('*')
-          .eq('statut', 'publié')
           .order('nom');
       
-      final eglises = (response as List).map((e) => Eglise.fromJson(e)).toList();
+      final eglises = (response as List).map((e) => Eglise.fromJson(e as Map<String, dynamic>)).toList();
+      
+      // ignore: avoid_print
+      print('✅ Fetched ${eglises.length} eglises');
+      
       _setCacheEntry(cacheKey, eglises);
       return eglises;
     } catch (e) {
-      print('Erreur fetchEglises: $e');
+      // ignore: avoid_print
+      print('❌ Erreur fetchEglises: $e');
       // Retourner le cache même expiré en cas d'erreur
       return (_cache[cacheKey] as List<Eglise>?) ?? [];
     }
@@ -59,7 +72,8 @@ class SupabaseService {
   static Future<Eglise?> fetchEgliseBySlug(String slug) async {
     try {
       final all = await fetchEglises();
-      return all.firstWhere((e) => e.slug == slug);
+      final wanted = slug.trim().toLowerCase();
+      return all.firstWhere((e) => e.safeSlug.toLowerCase() == wanted);
     } catch (_) {
       return null;
     }

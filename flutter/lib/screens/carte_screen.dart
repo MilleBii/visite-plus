@@ -31,12 +31,18 @@ class _CarteScreenState extends State<CarteScreen> {
 
   Future<void> _loadData() async {
     try {
+      // ignore: avoid_print
+      print('📍 CarteScreen: Loading eglises...');
       final eglises = await SupabaseService.fetchEglises();
+      // ignore: avoid_print
+      print('📍 CarteScreen: Got ${eglises.length} eglises');
       setState(() {
         _eglises = eglises;
         _loading = false;
       });
     } catch (e) {
+      // ignore: avoid_print
+      print('❌ CarteScreen error: $e');
       setState(() {
         _error = e.toString();
         _loading = false;
@@ -67,7 +73,7 @@ class _CarteScreenState extends State<CarteScreen> {
   void _onMarkerTap(Eglise eglise) {
     if (_egliseBulle?.id == eglise.id) {
       // Deuxième tap → naviguer vers l'église
-      context.push('/eglise/${eglise.slug}');
+      context.push('/eglise/${eglise.safeSlug}');
     } else {
       setState(() => _egliseBulle = eglise);
     }
@@ -141,7 +147,7 @@ class _CarteScreenState extends State<CarteScreen> {
               right: 16,
               child: _EgliseBulle(
                 eglise: _egliseBulle!,
-                onTap: () => context.push('/eglise/${_egliseBulle!.slug}'),
+                onTap: () => context.push('/eglise/${_egliseBulle!.safeSlug}'),
                 onClose: () => setState(() => _egliseBulle = null),
               ),
             ),
