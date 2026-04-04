@@ -126,6 +126,53 @@ function GestionnaireRotation({ modeRotation, onRotation }) {
 // ─── Composant principal ──────────────────────────────────────────────────────
 
 export default function OngletPlan({ egliseId }) {
+      // Ajout d'un POI sur clic carte
+      async function surClicCarte(positionVue) {
+        if (!modePlacement) return;
+        const position = positionVersStockage(positionVue);
+        const indexType = pois.filter(p => p.type === modePlacement).length + 1;
+        const titreDefaut = `${typeConfig[modePlacement]?.label || 'POI'} ${indexType}`;
+        const donnees = {
+          eglise_id: egliseId,
+          type: modePlacement,
+          position,
+          titre: titreDefaut,
+          photo: '',
+          texte_resume: '',
+          texte_comprendre: '',
+          texte_historique: '',
+          texte_bible: '',
+        };
+        const { data, error } = await supabase.from('pois').insert(donnees).select().single();
+        if (error || !data) {
+          setErreur(error?.message || 'Impossible de créer le POI');
+          return;
+        }
+        setPois(ps => [...ps, data]);
+        setPoiActif(data);
+        setFormPoi({ ...data });
+      }
+    function basculerModeRotation() {
+      setModeRotation(m => !m)
+    }
+  // Chargement des données église + POI
+  useEffect(() => {
+    if (!egliseId) return;
+    setChargement(true);
+    setErreur(null);
+    Promise.all([
+      supabase.from('eglises').select('*').eq('id', egliseId).single(),
+      supabase.from('pois').select('*').eq('eglise_id', egliseId)
+    ]).then(([egliseRes, poisRes]) => {
+      if (egliseRes.error) { setErreur(egliseRes.error.message); setChargement(false); return; }
+      setEglise(egliseRes.data);
+      if (poisRes.error) { setErreur(poisRes.error.message); setChargement(false); return; }
+      setPois(poisRes.data || []);
+      setChargement(false);
+    });
+  }, [egliseId]);
+
+  // TOUS LES HOOKS D'ABORD !
   const [eglise, setEglise] = useState(null)
   const [pois, setPois] = useState([])
   const [chargement, setChargement] = useState(true)
@@ -147,192 +194,77 @@ export default function OngletPlan({ egliseId }) {
   const mapRef = useRef(null)
   const photoPreviewRef = useRef('')
 
-  useEffect(() => {
-    photoPreviewRef.current = photoPreview
-  }, [photoPreview])
+  const [osmPropose, setOsmPropose] = useState(null)
+  const [osmRecherche, setOsmRecherche] = useState(false)
+  const [osmErreur, setOsmErreur] = useState(null)
+  const [osmValide, setOsmValide] = useState(false)
 
-  useEffect(() => {
-    return () => {
-      if (photoPreviewRef.current?.startsWith('blob:')) {
-        URL.revokeObjectURL(photoPreviewRef.current)
-      }
-    }
-  }, [])
-
-  function resetUploadPhoto() {
-    if (photoPreviewRef.current?.startsWith('blob:')) {
-      URL.revokeObjectURL(photoPreviewRef.current)
-    }
-    setPhotoFile(null)
-    setPhotoPreview('')
+  // ENSUITE SEULEMENT, LES RETOURS CONDITIONNELS
+  if (!egliseId) {
+    return <div style={{ padding: 32, textAlign: 'center', color: C.texteSecondaire, fontSize: 16 }}>
+      Veuillez d'abord enregistrer l'église pour accéder au plan et aux POI.
+    </div>;
   }
-
-
-  useEffect(() => {
-    if (egliseId) chargerDonnees()
-  }, [egliseId])
-
-  async function chargerDonnees() {
-    setChargement(true)
-    const [{ data: egliseData, error: e1 }, { data: poisData, error: e2 }] = await Promise.all([
-      supabase.from('eglises').select('osm_footprint_json, osm_rotation_angle, plan_image').eq('id', egliseId).single(),
-      supabase.from('pois').select('*').eq('eglise_id', egliseId),
-    ])
-    if (e1 || e2) { setErreur((e1 || e2).message); setChargement(false); return }
-    setEglise(egliseData)
-    setPois(poisData || [])
-    const a = egliseData?.osm_rotation_angle ?? 0
-    setAngle(a)
-    setAngleSauvegarde(a)
-    setChargement(false)
-  }
-
-  // ── Rotation ──
-
-  function basculerModeRotation() {
-    setModeRotation(m => !m)
-  }
-
-  async function sauvegarderAngle() {
-    setSauvegardeAngle(true)
-    await supabase.from('eglises').update({ osm_rotation_angle: angle }).eq('id', egliseId)
-    setAngleSauvegarde(angle)
-    setSauvegardeAngle(false)
-  }
-
-  // ── Placement d'un nouveau POI ──
-
-  async function surClicCarte(positionVue) {
-    if (!modePlacement) return
-
-    const position = positionVersStockage(positionVue)
-    const indexType = pois.filter(p => p.type === modePlacement).length + 1
-    const titreDefaut = `${typeConfig[modePlacement]?.label || 'POI'} ${indexType}`
-
-    const donnees = {
-      eglise_id: egliseId,
-      type: modePlacement,
-      position,
-      titre: titreDefaut,
-      photo: '',
-      texte_resume: '',
-      texte_comprendre: '',
-      texte_historique: '',
-      texte_bible: '',
-    }
-
-    const { data, error } = await supabase.from('pois').insert(donnees).select().single()
-    if (error || !data) {
-      setErreur(error?.message || 'Impossible de creer le POI')
-      return
-    }
-
-    setPois(ps => [...ps, data])
-    setPoiActif(data)
-    setFormPoi({ ...data })
-  }
-
-  // ── Sélection d'un POI existant ──
-
-  function surClicPoi(poi) {
-    setPoiActif(poi)
-    setFormPoi({ ...poi })
-    resetUploadPhoto()
-    setModePlacement(null)
-  }
-
-  // ── Drag & drop ──
-
-  async function surDeplacement(poi, positionVue) {
-    const nouvellePosition = positionVersStockage(positionVue)
-    const anciennePosition = poi.position
-
-    setPois(ps => ps.map(p => p.id === poi.id ? { ...p, position: nouvellePosition } : p))
-    setFormPoi(f => (f?.id === poi.id ? { ...f, position: nouvellePosition } : f))
-
-    const { error } = await supabase.from('pois').update({ position: nouvellePosition }).eq('id', poi.id)
-    if (error) {
-      setPois(ps => ps.map(p => p.id === poi.id ? { ...p, position: anciennePosition } : p))
-      setFormPoi(f => (f?.id === poi.id ? { ...f, position: anciennePosition } : f))
-      setErreur(error.message)
-    }
-  }
-
-  // ── Sauvegarde POI ──
-
-  async function sauvegarderPoi() {
-    setSauvegarde(true)
-    let photoUrl = formPoi.photo
-
-    if (photoFile) {
-      const extension = photoFile.name?.split('.').pop()?.toLowerCase() || 'jpg'
-      const fileName = `eglise-${egliseId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`
-      const { error: uploadError } = await supabase.storage.from(POI_PHOTOS_BUCKET).upload(fileName, photoFile)
-      if (uploadError) {
-        if (uploadError.message?.toLowerCase().includes('bucket not found')) {
-          setErreur(`Upload photo indisponible: bucket '${POI_PHOTOS_BUCKET}' introuvable. Le POI a ete enregistre sans photo.`)
-        } else {
-          setErreur(`Upload photo echoue (${uploadError.message}). Le POI a ete enregistre sans photo.`)
-        }
-      } else {
-        const { data: publicData } = supabase.storage.from(POI_PHOTOS_BUCKET).getPublicUrl(fileName)
-        photoUrl = publicData?.publicUrl || ''
-      }
-    }
-
-    const donnees = {
-      eglise_id: egliseId,
-      type: formPoi.type,
-      position: formPoi.position,
-      titre: formPoi.titre,
-      photo: photoUrl,
-      texte_resume: formPoi.texte_resume,
-      texte_comprendre: formPoi.texte_comprendre,
-      texte_historique: formPoi.texte_historique,
-      texte_bible: formPoi.texte_bible,
-    }
-
-    if (formPoi._nouveau) {
-      const { data, error } = await supabase.from('pois').insert(donnees).select().single()
-      if (!error) {
-        setPois(ps => [...ps, data])
-        setPoiActif(data)
-        setFormPoi({ ...data })
-        resetUploadPhoto()
-      }
-    } else {
-      const { error } = await supabase.from('pois').update(donnees).eq('id', formPoi.id)
-      if (!error) {
-        setPois(ps => ps.map(p => p.id === formPoi.id ? { ...p, ...donnees } : p))
-        setFormPoi(f => ({ ...f, ...donnees }))
-        resetUploadPhoto()
-      }
-    }
-    setSauvegarde(false)
-  }
-
-  // ── Suppression POI ──
-
-  async function supprimerPoi() {
-    if (!formPoi.id) { setPoiActif(null); setFormPoi(null); resetUploadPhoto(); return }
-    await supabase.from('pois').delete().eq('id', formPoi.id)
-    setPois(ps => ps.filter(p => p.id !== formPoi.id))
-    setPoiActif(null)
-    setFormPoi(null)
-    resetUploadPhoto()
-  }
-
-  function champForm(cle, val) {
-    setFormPoi(f => ({ ...f, [cle]: val }))
-  }
-
-  // ── Rendu ──
 
   if (chargement) return <Placeholder texte="Chargement du plan…" />
   if (erreur) return <Placeholder texte={`Erreur : ${erreur}`} erreur />
 
   const footprintGps = eglise?.osm_footprint_json ? JSON.parse(eglise.osm_footprint_json) : null
-  if (!footprintGps) return <Placeholder texte="Aucun plan OSM disponible pour cette église. Uploadez un plan manuellement." />
+  if (!footprintGps) {
+    return (
+      <div style={{ padding: 32, textAlign: 'center' }}>
+        <p style={{ color: C.texteSecondaire, fontSize: 16 }}>Aucun plan OSM disponible pour cette église.</p>
+        {osmErreur && <div style={{ color: C.danger, marginBottom: 12 }}>{osmErreur}</div>}
+        {osmPropose && (
+          <>
+            <p style={{ color: C.primaire, fontWeight: 500 }}>Polygone trouvé sur OpenStreetMap&nbsp;:</p>
+            <div style={{ display: 'flex', justifyContent: 'center', margin: '16px 0' }}>
+              <svg width="320" height="220" viewBox="0 0 320 220" style={{ border: '1px solid #ccc', background: '#f8fafc' }}>
+                {osmPropose.map((ring, i) => (
+                  <polygon key={i} points={ring.map(([lat, lon]) => `${160 + (lon - osmPropose[0][0][1]) * 10000},${110 - (lat - osmPropose[0][0][0]) * 10000}`).join(' ')} fill="#1B4332" fillOpacity="0.2" stroke="#1B4332" strokeWidth="2" />
+                ))}
+              </svg>
+            </div>
+            <button onClick={async () => {
+              setOsmValide(true)
+              await supabase.from('eglises').update({ osm_footprint_json: JSON.stringify(osmPropose) }).eq('id', egliseId)
+              window.location.reload()
+            }} style={{ background: C.primaire, color: '#fff', border: 'none', borderRadius: 6, padding: '10px 22px', fontSize: 15, fontWeight: 600, cursor: 'pointer', marginRight: 12 }}>Valider et enregistrer</button>
+            <button onClick={() => setOsmPropose(null)} style={{ background: '#fff', color: C.danger, border: `1px solid ${C.danger}`, borderRadius: 6, padding: '10px 22px', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
+          </>
+        )}
+        {!osmPropose && (
+          <button
+            onClick={async () => {
+              setOsmRecherche(true); setOsmErreur(null)
+              try {
+                // Recherche OSM via Overpass
+                const nom = eglise?.nom || ''
+                const ville = eglise?.ville || ''
+                const query = `[out:json][timeout:25];area["name"="${ville}"][admin_level=8];(way["building"]["name"~"${nom}"](area);relation["building"]["name"~"${nom}"](area););out geom;`;
+                const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`
+                const res = await fetch(url)
+                const json = await res.json()
+                const poly = (json.elements.find(e => e.type === 'way' && e.geometry) || json.elements.find(e => e.type === 'relation' && e.members?.[0]?.geometry))
+                let rings = []
+                if (poly?.geometry) rings = [[...poly.geometry.map(pt => [pt.lat, pt.lon])]]
+                else if (poly?.members) rings = poly.members.filter(m => m.geometry).map(m => m.geometry.map(pt => [pt.lat, pt.lon]))
+                if (rings.length === 0) throw new Error('Aucun polygone trouvé sur OSM')
+                setOsmPropose(rings)
+              } catch (e) {
+                setOsmErreur('Aucun polygone trouvé sur OpenStreetMap pour cette église.')
+              }
+              setOsmRecherche(false)
+            }}
+            disabled={osmRecherche}
+            style={{ background: C.primaire, color: '#fff', border: 'none', borderRadius: 6, padding: '10px 22px', fontSize: 15, fontWeight: 600, cursor: osmRecherche ? 'wait' : 'pointer' }}
+          >
+            {osmRecherche ? 'Recherche en cours…' : 'Chercher le plan sur OpenStreetMap'}
+          </button>
+        )}
+      </div>
+    )
+  }
 
   const { footprint, bounds } = buildLocal(footprintGps, angle)
   const { bounds: boundsSauvegardes } = buildLocal(footprintGps, angleSauvegarde)

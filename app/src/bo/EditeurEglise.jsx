@@ -464,8 +464,8 @@ export default function EditeurEglise({ egliseId, onRetour }) {
         )}
         {onglet === 'evenements' && (
           <OngletEvenements
-            googleCalendarId={form.google_calendar_id}
-            onConfigurerCalendar={() => setOnglet('informations')}
+            form={form}
+            onChange={champ}
           />
         )}
         {onglet === 'qrcode' && (
@@ -532,15 +532,6 @@ function OngletInformations({ form, onChange, onRechercherPhoto, recherchePhoto 
           </Champ>
         </Carte>
 
-        <Carte titre="Intégrations">
-          <Champ label="ID Google Calendar" hint="Calendrier public de l'église — pour la section « Au programme »">
-            <Input
-              valeur={form.google_calendar_id}
-              onChange={v => onChange('google_calendar_id', v)}
-              placeholder="Ex : abc123@group.calendar.google.com"
-            />
-          </Champ>
-        </Carte>
 
       </div>
 
@@ -614,69 +605,69 @@ function OngletStub({ icone, label }) {
   )
 }
 
-function OngletEvenements({ googleCalendarId, onConfigurerCalendar }) {
-  const calendarId = (googleCalendarId || '').trim()
-
-  if (!calendarId) {
-    return (
-      <div style={{
-        background: C.blanc, borderRadius: 10, border: `1px solid ${C.bordure}`,
-        padding: 40, textAlign: 'center', color: C.texteSecondaire,
-      }}>
-        <div style={{ fontSize: 40, marginBottom: 12 }}>📅</div>
-        <p style={{ margin: 0, fontWeight: 600, color: '#111827' }}>Aucun Google Calendar configuré</p>
-        <p style={{ margin: '8px 0 16px', fontSize: 13 }}>
-          Pour afficher les prochains événements ici, renseignez un ID Google Calendar public dans l'onglet Informations.
-        </p>
-        <button
-          onClick={onConfigurerCalendar}
-          style={{
-            padding: '9px 14px', borderRadius: 6, border: `1px solid ${C.bordure}`,
-            background: C.blanc, cursor: 'pointer', fontSize: 13, color: '#374151',
-          }}
-        >
-          Configurer le calendrier
-        </button>
-      </div>
-    )
-  }
-
-  const src = `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(calendarId)}&mode=AGENDA&showTitle=0&showDate=1&showNav=0&showPrint=0&showTz=0&showCalendars=0&hl=fr&wkst=2`
+function OngletEvenements({ form, onChange }) {
+  const calendarId = (form.google_calendar_id || '').trim();
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{
-        background: C.blanc, borderRadius: 10, border: `1px solid ${C.bordure}`,
-        padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-      }}>
-        <div>
-          <p style={{ margin: 0, fontWeight: 600, color: '#111827', fontSize: 14 }}>Prochains événements</p>
-          <p style={{ margin: '4px 0 0', color: C.texteSecondaire, fontSize: 12 }}>
-            Source: Google Calendar ({calendarId})
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <Carte titre="Intégration Google Calendar">
+        <Champ label="ID Google Calendar" hint="Calendrier public de l'église — pour la section « Au programme »">
+          <Input
+            valeur={form.google_calendar_id}
+            onChange={v => onChange('google_calendar_id', v)}
+            placeholder="Ex : abc123@group.calendar.google.com"
+          />
+        </Champ>
+      </Carte>
+
+      {!calendarId && (
+        <div style={{
+          background: C.blanc, borderRadius: 10, border: `1px solid ${C.bordure}`,
+          padding: 40, textAlign: 'center', color: C.texteSecondaire,
+        }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>📅</div>
+          <p style={{ margin: 0, fontWeight: 600, color: '#111827' }}>Aucun Google Calendar configuré</p>
+          <p style={{ margin: '8px 0 16px', fontSize: 13 }}>
+            Pour afficher les prochains événements ici, renseignez un ID Google Calendar public ci-dessus.
           </p>
         </div>
-        <a
-          href={`https://calendar.google.com/calendar/u/0/r?cid=${encodeURIComponent(calendarId)}`}
-          target="_blank"
-          rel="noreferrer"
-          style={{ fontSize: 12, color: C.primaire, textDecoration: 'underline', whiteSpace: 'nowrap' }}
-        >
-          Ouvrir dans Google Calendar
-        </a>
-      </div>
+      )}
 
-      <div style={{
-        background: C.blanc, borderRadius: 10, border: `1px solid ${C.bordure}`,
-        overflow: 'hidden',
-      }}>
-        <iframe
-          title="Agenda Google Calendar"
-          src={src}
-          style={{ width: '100%', height: 640, border: 0, display: 'block' }}
-        />
-      </div>
+      {calendarId && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{
+            background: C.blanc, borderRadius: 10, border: `1px solid ${C.bordure}`,
+            padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+          }}>
+            <div>
+              <p style={{ margin: 0, fontWeight: 600, color: '#111827', fontSize: 14 }}>Prochains événements</p>
+              <p style={{ margin: '4px 0 0', color: C.texteSecondaire, fontSize: 12 }}>
+                Source: Google Calendar ({calendarId})
+              </p>
+            </div>
+            <a
+              href={`https://calendar.google.com/calendar/u/0/r?cid=${encodeURIComponent(calendarId)}`}
+              target="_blank"
+              rel="noreferrer"
+              style={{ fontSize: 12, color: C.primaire, textDecoration: 'underline', whiteSpace: 'nowrap' }}
+            >
+              Ouvrir dans Google Calendar
+            </a>
+          </div>
+          <div style={{
+            background: C.blanc, borderRadius: 10, border: `1px solid ${C.bordure}`,
+            overflow: 'hidden',
+          }}>
+            <iframe
+              title="Agenda Google Calendar"
+              src={`https://calendar.google.com/calendar/embed?src=${encodeURIComponent(calendarId)}&mode=AGENDA&showTitle=0&showDate=1&showNav=0&showPrint=0&showTz=0&showCalendars=0&hl=fr&wkst=2`}
+              style={{ width: '100%', height: 640, border: 0, display: 'block' }}
+            />
+          </div>
+        </div>
+      )}
     </div>
-  )
+  );
 }
 
 function OngletStatistiques({ form, stats, statsRange, onChangeRange }) {
