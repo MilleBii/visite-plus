@@ -38,6 +38,12 @@ function slotKey(dateValue, granularity) {
 
 export default function EditeurEglise({ egliseId, onRetour }) {
   const [onglet, setOnglet] = useState('informations')
+  const [recherche, setRecherche] = useState('')
+  const [resultats, setResultats] = useState([])
+  const [rechercheActive, setRechercheActive] = useState(false)
+  const [resultatsExternes, setResultatsExternes] = useState([])
+  const [rechercheExterneActive, setRechercheExterneActive] = useState(false)
+  const [egliseSelectionnee, setEgliseSelectionnee] = useState(egliseId || null)
 
   useEffect(() => {
     const root = document.getElementById('root')
@@ -76,32 +82,88 @@ export default function EditeurEglise({ egliseId, onRetour }) {
     statut: 'brouillon',
   })
 
+
   useEffect(() => {
-    if (egliseId) chargerEglise()
+    if (egliseSelectionnee) chargerEglise(egliseSelectionnee)
     else setChargement(false)
-  }, [egliseId])
+  }, [egliseSelectionnee])
+
+  // Recherche dynamique interne (Supabase)
+  useEffect(() => {
+    if (recherche.length < 2) {
+      setResultats([])
+      setResultatsExternes([])
+      return
+    }
+    let actif = true
+    setRechercheActive(true)
+    supabase
+      .from('eglises')
+      .select('id, nom, ville')
+      .ilike('nom', `%${recherche}%`)
+      .order('nom')
+      .then(({ data }) => {
+        if (actif) setResultats(data || [])
+      })
+      .finally(() => { if (actif) setRechercheActive(false) })
+
+    // Recherche externe (Wikidata/Wikipedia)
+    setRechercheExterneActive(true)
+    fetch(`https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(recherche)}&language=fr&type=item&format=json&origin=*`)
+      .then(r => r.json())
+      .then(json => {
+        if (!actif) return
+        const ids = (json.search || []).map(e => e.id)
+        if (ids.length === 0) { setResultatsExternes([]); setRechercheExterneActive(false); return }
+        // Pour chaque résultat, récupérer les infos détaillées
+        fetch(`https://www.wikidata.org/wiki/Special:EntityData/${ids[0]}.json`)
+          .then(r2 => r2.json())
+          .then(data => {
+            if (!actif) return
+            // On ne prend que le premier résultat pour simplicité
+            const entity = data.entities[ids[0]]
+            // Extraction des infos utiles
+            const label = entity.labels?.fr?.value || entity.labels?.en?.value || ''
+            const ville = entity.claims?.P131?.[0]?.mainsnak?.datavalue?.value?.id || ''
+            const coord = entity.claims?.P625?.[0]?.mainsnak?.datavalue?.value || null
+            const image = entity.claims?.P18?.[0]?.mainsnak?.datavalue?.value || ''
+            setResultatsExternes([{
+              id: ids[0],
+              nom: label,
+              ville,
+              coord,
+              image,
+              url: `https://www.wikidata.org/wiki/${ids[0]}`
+            }])
+            setRechercheExterneActive(false)
+          })
+          .catch(() => { setResultatsExternes([]); setRechercheExterneActive(false) })
+      })
+      .catch(() => { setResultatsExternes([]); setRechercheExterneActive(false) })
+    return () => { actif = false }
+  }, [recherche])
 
   useEffect(() => {
     if (onglet !== 'statistiques' || !egliseId) return
     chargerStats(statsRange)
   }, [onglet, egliseId, statsRange])
 
-  async function chargerEglise() {
+  async function chargerEglise(id) {
     setChargement(true)
     const [{ data, error }, { data: poisRows, error: poisErr }, { count: eventsCount }] = await Promise.all([
       supabase
         .from('eglises')
         .select('*')
-        .eq('id', egliseId)
+        .eq('id', id)
         .single(),
       supabase
         .from('pois')
         .select('id, titre')
-        .eq('eglise_id', egliseId),
+        .eq('eglise_id', id),
       supabase
         .from('evenements')
         .select('id', { count: 'exact', head: true })
-        .eq('eglise_id', egliseId),
+        .eq('eglise_id', id),
     ])
 
     if (error) {
@@ -278,6 +340,54 @@ export default function EditeurEglise({ egliseId, onRetour }) {
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+
+      {/* Barre de recherche d'église : visible uniquement si création */}
+      {!egliseId && (
+        <div style={{ background: C.blanc, borderBottom: `1px solid ${C.bordure}`, padding: '18px 24px 10px', display: 'flex', alignItems: 'center', gap: 16, position: 'relative' }}>
+          <input
+            value={recherche}
+            onChange={e => setRecherche(e.target.value)}
+            placeholder="Rechercher une église par nom..."
+            style={{ width: 320, padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.bordure}`, fontSize: 14, background: C.bg }}
+          />
+          {rechercheActive && <span style={{ fontSize: 13, color: C.texteSecondaire }}>Recherche locale…</span>}
+          {rechercheExterneActive && <span style={{ fontSize: 13, color: C.texteSecondaire }}>Recherche internet…</span>}
+          {(resultats.length > 0 || resultatsExternes.length > 0) && (
+            <div style={{ background: C.bg, border: `1px solid ${C.bordure}`, borderRadius: 8, position: 'absolute', top: 44, left: 0, zIndex: 10, minWidth: 320, maxHeight: 260, overflowY: 'auto' }}>
+              {resultats.map(e => (
+                <div
+                  key={e.id}
+                  onClick={() => { setEgliseSelectionnee(e.id); setRecherche(''); setResultats([]); setResultatsExternes([]) }}
+                  style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: `1px solid ${C.bordure}`, fontSize: 14, background: e.id === egliseSelectionnee ? C.primaire : 'inherit', color: e.id === egliseSelectionnee ? '#fff' : '#111827' }}
+                >
+                  {e.nom} <span style={{ color: C.texteSecondaire, fontSize: 12 }}>({e.ville})</span>
+                </div>
+              ))}
+              {resultatsExternes.map(e => (
+                <div
+                  key={e.id}
+                  onClick={() => {
+                    setRecherche(''); setResultats([]); setResultatsExternes([]);
+                    // Remplir le formulaire avec les infos externes
+                    setForm(f => ({
+                      ...f,
+                      nom: e.nom || '',
+                      ville: e.ville || '',
+                      lat: e.coord ? e.coord.latitude : '',
+                      lon: e.coord ? e.coord.longitude : '',
+                      photo_facade: e.image ? `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(e.image)}` : '',
+                    }))
+                  }}
+                  style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: `1px solid ${C.bordure}`, fontSize: 14, background: '#e0f2fe', color: '#111827' }}
+                >
+                  🌐 {e.nom} {e.ville && <span style={{ color: C.texteSecondaire, fontSize: 12 }}>({e.ville})</span>}
+                  {e.image && <span style={{ marginLeft: 8, fontSize: 12, color: C.texteSecondaire }}>🖼️</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Header */}
       <div style={{ background: C.primaire, color: '#fff', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 56 }}>
