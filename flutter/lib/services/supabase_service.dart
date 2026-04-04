@@ -74,11 +74,12 @@ class SupabaseService {
     final wanted = slug.trim().toLowerCase();
 
     try {
-      // Chemin nominal: slug stocké en base.
+      // Chemin nominal: slug stocké en base, uniquement si publié.
       final response = await _client
           .from('eglises')
           .select('*')
           .eq('slug', wanted)
+          .eq('statut', 'publié')
           .maybeSingle();
 
       if (response != null) {

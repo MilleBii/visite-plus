@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../models/eglise.dart';
 import '../services/supabase_service.dart';
 import '../config/type_config.dart';
+import 'package:flutter/foundation.dart';
+import './_store_button.dart';
 
 class CarteScreen extends StatefulWidget {
   const CarteScreen({super.key});
@@ -21,6 +23,11 @@ class _CarteScreenState extends State<CarteScreen> {
   String? _error;
   Eglise? _egliseBulle; // premier tap → bulle de nom
   Position? _userPosition;
+
+  // Pour la recherche
+  String _search = '';
+  List<Eglise> _filteredEglises = [];
+  bool _showSearchResults = false;
 
   @override
   void initState() {
@@ -38,6 +45,7 @@ class _CarteScreenState extends State<CarteScreen> {
       print('📍 CarteScreen: Got ${eglises.length} eglises');
       setState(() {
         _eglises = eglises;
+        _filteredEglises = eglises;
         _loading = false;
       });
     } catch (e) {
@@ -100,15 +108,12 @@ class _CarteScreenState extends State<CarteScreen> {
               ),
               children: [
                 TileLayer(
-                  // TODO prod: remplacer par Stadia Maps avec API key
-                  // urlTemplate: 'https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png?api_key=VOTRE_CLE',
                   urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'fr.visite_plus.app',
                   maxZoom: 19,
                 ),
                 MarkerLayer(
                   markers: [
-                    // Marqueur de position utilisateur
                     if (_userPosition != null)
                       Marker(
                         point: LatLng(_userPosition!.latitude, _userPosition!.longitude),
@@ -123,7 +128,6 @@ class _CarteScreenState extends State<CarteScreen> {
                           ),
                         ),
                       ),
-                    // Marqueurs des églises
                     ..._eglises.map((e) => Marker(
                           point: LatLng(e.latitude, e.longitude),
                           width: 40,
@@ -141,6 +145,38 @@ class _CarteScreenState extends State<CarteScreen> {
               ],
             ),
 
+          // Overlay résultats recherche
+          if (_showSearchResults && _search.isNotEmpty)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 60,
+              left: 16,
+              right: 16,
+              child: Material(
+                elevation: 6,
+                borderRadius: BorderRadius.circular(12),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: _filteredEglises.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, i) {
+                    final e = _filteredEglises[i];
+                    return ListTile(
+                      leading: Icon(e.typeIcon, color: Colors.black54),
+                      title: Text(e.nom),
+                      subtitle: Text(e.ville),
+                      onTap: () {
+                        setState(() {
+                          _showSearchResults = false;
+                          _egliseBulle = e;
+                        });
+                        _mapController.move(LatLng(e.latitude, e.longitude), 15);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
+
           // Bulle de nom (premier tap)
           if (_egliseBulle != null)
             Positioned(
@@ -154,27 +190,81 @@ class _CarteScreenState extends State<CarteScreen> {
               ),
             ),
 
-          // Titre app
+          // Titre app + barre de recherche
           Positioned(
             top: MediaQuery.of(context).padding.top + 12,
             left: 16,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
-              ),
-              child: const Text(
-                'Visite+',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1B4332),
+            right: 16,
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
+                  ),
+                  child: const Text(
+                    'Visite+',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1B4332),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
+                      hintText: 'Rechercher une église...',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                      prefixIcon: const Icon(Icons.search, size: 18),
+                      isDense: true,
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _search = value;
+                        _showSearchResults = value.isNotEmpty;
+                        _filteredEglises = _eglises
+                            .where((e) => e.nom.toLowerCase().contains(_search.toLowerCase()))
+                            .toList();
+                      });
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
+          // Boutons App Store & Google Play (web uniquement)
+          if (kIsWeb)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: MediaQuery.of(context).padding.bottom + 16,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  StoreButton(
+                    label: 'App Store',
+                    icon: Icons.apple,
+                    url: 'https://apps.apple.com/app/visite-plus/id0000000000',
+                  ),
+                  const SizedBox(width: 16),
+                  StoreButton(
+                    label: 'Google Play',
+                    icon: Icons.android,
+                    url: 'https://play.google.com/store/apps/details?id=fr.visite_plus.app',
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

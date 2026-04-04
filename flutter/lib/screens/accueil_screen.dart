@@ -5,6 +5,9 @@ import '../models/eglise.dart';
 import '../services/supabase_service.dart';
 import '../widgets/banniere_download.dart';
 
+// Ajout pour la recherche
+import 'dart:async';
+
 class AccueilScreen extends StatefulWidget {
   final String slug;
 
@@ -19,10 +22,25 @@ class _AccueilScreenState extends State<AccueilScreen> {
   bool _loading = true;
   String? _error;
 
+  // Pour la recherche
+  List<Eglise> _allEglises = [];
+  List<Eglise> _filteredEglises = [];
+  String _search = '';
+  bool _searchMode = false;
+  Timer? _debounce;
+
   @override
   void initState() {
     super.initState();
     _loadEglise();
+  }
+
+  Future<void> _loadAllEglises() async {
+    final eglises = await SupabaseService.fetchEglises();
+    setState(() {
+      _allEglises = eglises;
+      _filteredEglises = eglises;
+    });
   }
 
   Future<void> _loadEglise() async {
@@ -53,6 +71,58 @@ class _AccueilScreenState extends State<AccueilScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_searchMode) {
+      if (_allEglises.isEmpty) {
+        _loadAllEglises();
+      }
+      return Scaffold(
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            onPressed: () => setState(() => _searchMode = false),
+          ),
+          title: TextField(
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'Rechercher une église...',
+              border: InputBorder.none,
+            ),
+            onChanged: (value) {
+              setState(() => _search = value);
+              if (_debounce?.isActive ?? false) _debounce!.cancel();
+              _debounce = Timer(const Duration(milliseconds: 200), () {
+                setState(() {
+                  _filteredEglises = _allEglises
+                      .where((e) => e.nom.toLowerCase().contains(_search.toLowerCase()))
+                      .toList();
+                });
+              });
+            },
+          ),
+        ),
+        body: ListView.separated(
+          itemCount: _filteredEglises.length,
+          separatorBuilder: (_, __) => const Divider(height: 1),
+          itemBuilder: (context, i) {
+            final e = _filteredEglises[i];
+            return ListTile(
+              leading: Icon(e.typeIcon, color: Colors.black54),
+              title: Text(e.nom),
+              subtitle: Text(e.ville),
+              onTap: () {
+                setState(() {
+                  _searchMode = false;
+                  _eglise = e;
+                });
+              },
+            );
+          },
+        ),
+      );
+    }
+
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -62,7 +132,11 @@ class _AccueilScreenState extends State<AccueilScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.church_outlined, size: 48, color: Color(0xFF78716C)),
+              Icon(
+                _eglise?.typeIcon ?? Icons.church_outlined,
+                size: 48,
+                color: const Color(0xFF78716C),
+              ),
               const SizedBox(height: 12),
               Text(_error ?? 'Église introuvable.'),
               const SizedBox(height: 16),
@@ -126,6 +200,31 @@ class _AccueilScreenState extends State<AccueilScreen> {
             ),
           ),
 
+          // Bouton recherche
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 12,
+            right: 16,
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _searchMode = true;
+                  _search = '';
+                  _filteredEglises = _allEglises;
+                });
+                _loadAllEglises();
+              },
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.35),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.search, color: Colors.white, size: 18),
+              ),
+            ),
+          ),
+
           // Contenu bas d'écran
           Positioned(
             bottom: 0,
@@ -180,8 +279,8 @@ class _AccueilScreenState extends State<AccueilScreen> {
                       style: _NavButtonStyle.ghost,
                     ),
                     const SizedBox(height: 10),
-                    _NavButton(
-                      icon: '🗺️',
+                    _NavButtonIcon(
+                      iconData: eglise.typeIcon,
                       label: 'Visiter cette église',
                       onTap: () => context.push('/eglise/${eglise.safeSlug}/plan'),
                       style: _NavButtonStyle.primary,
@@ -237,6 +336,55 @@ class _NavButton extends StatelessWidget {
         child: Row(
           children: [
             Text(icon, style: const TextStyle(fontSize: 20)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: isPrimary ? const Color(0xFF1B4332) : Colors.white,
+                  fontSize: 15,
+                  fontWeight: isPrimary ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NavButtonIcon extends StatelessWidget {
+  final IconData iconData;
+  final String label;
+  final VoidCallback onTap;
+  final _NavButtonStyle style;
+
+  const _NavButtonIcon({
+    required this.iconData,
+    required this.label,
+    required this.onTap,
+    required this.style,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isPrimary = style == _NavButtonStyle.primary;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: isPrimary ? Colors.white : Colors.white.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isPrimary ? Colors.white : Colors.white.withOpacity(0.3),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(iconData, size: 22, color: isPrimary ? const Color(0xFF1B4332) : Colors.white),
             const SizedBox(width: 12),
             Expanded(
               child: Text(

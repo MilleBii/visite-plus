@@ -23,7 +23,7 @@ class _BanniereDownloadState extends State<BanniereDownload> {
   void initState() {
     super.initState();
     if (kIsWeb) {
-      _platform = _detectPlatform();
+      _platform = _detectPlatformForTest();
     }
   }
 
@@ -99,12 +99,13 @@ class _BanniereDownloadState extends State<BanniereDownload> {
     await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
 
-  static _Platform? _detectPlatform() {
-    // Sur Flutter Web, on utilise le user agent pour détecter iOS/Android.
-    // defaultTargetPlatform reflète la plateforme réelle en web.
+  // Pour le test : affiche la bannière sur tout Flutter Web (mobile ET desktop)
+  static _Platform? _detectPlatformForTest() {
     if (defaultTargetPlatform == TargetPlatform.iOS) return _Platform.ios;
     if (defaultTargetPlatform == TargetPlatform.android) return _Platform.android;
-    return null; // Desktop → on n'affiche pas la bannière
+    // Pour le test, on choisit Android par défaut sur desktop web
+    if (kIsWeb) return _Platform.android;
+    return null;
   }
 }
 

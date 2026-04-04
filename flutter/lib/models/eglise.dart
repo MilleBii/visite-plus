@@ -83,13 +83,17 @@ class Eglise {
   }
 
   IconData get typeIcon {
-    switch (type) {
+    switch (type.toLowerCase()) {
       case 'cathédrale':
         return Icons.church;
+      case 'basilique':
+        return Icons.account_balance_rounded;
       case 'sanctuaire':
-        return Icons.place;
-      default:
+        return Icons.spa;
+      case 'église':
         return Icons.account_balance;
+      default:
+        return Icons.location_on;
     }
   }
 }

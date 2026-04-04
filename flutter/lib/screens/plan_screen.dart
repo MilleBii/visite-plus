@@ -636,26 +636,7 @@ class _PanneauPoiBas extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Badge type
-                          Container(
-                            margin: const EdgeInsets.only(bottom: 6),
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF5F5F4),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(cfg.emoji, style: const TextStyle(fontSize: 11)),
-                                const SizedBox(width: 4),
-                                Text(
-                                  cfg.label,
-                                  style: const TextStyle(fontSize: 12, color: Color(0xFF78716C)),
-                                ),
-                              ],
-                            ),
-                          ),
+                          // (Type POI supprimé)
                           Text(
                             poi.titre,
                             style: const TextStyle(
