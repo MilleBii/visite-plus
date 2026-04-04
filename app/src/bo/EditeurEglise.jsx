@@ -77,7 +77,9 @@ export default function EditeurEglise({ egliseId, onRetour }) {
     lon: '',
     message_bienvenue: 'Croyant ou non, bienvenue dans cette église !',
     photo_facade: '',
-    google_calendar_id: '',
+    google_calendar_messes_id: '',
+    google_calendar_evenements_id: '',
+    messeinfo_sync_mode: '', // '', 'import', 'export'
     slug: '',
     statut: 'brouillon',
   })
@@ -177,7 +179,8 @@ export default function EditeurEglise({ egliseId, onRetour }) {
         lon: data.position?.[1] ?? '',
         message_bienvenue: data.message_bienvenue || '',
         photo_facade: data.photo_facade || '',
-        google_calendar_id: data.google_calendar_id || '',
+        google_calendar_messes_id: data.google_calendar_messes_id || '',
+        google_calendar_evenements_id: data.google_calendar_evenements_id || '',
         slug: data.slug || '',
         statut: data.statut || 'brouillon',
       })
@@ -607,66 +610,114 @@ function OngletStub({ icone, label }) {
 }
 
 function OngletEvenements({ form, onChange }) {
-  const calendarId = (form.google_calendar_id || '').trim();
+  const calendarMessesId = (form.google_calendar_messes_id || '').trim();
+  const calendarEvenementsId = (form.google_calendar_evenements_id || '').trim();
+  const messeinfoSyncMode = form.messeinfo_sync_mode || '';
+
+  // Logo MesseInfo image fournie
+  const messeInfoLogo = (
+    <img src="/messeinfo-logo.png" alt="MesseInfo" style={{ width: 22, height: 22, objectFit: 'contain', verticalAlign: 'middle', marginRight: 6, borderRadius: 4, background: '#fff' }} />
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      <Carte titre="Intégration Google Calendar">
-        <Champ label="ID Google Calendar" hint="Calendrier public de l'église — pour la section « Au programme »">
+      <Carte titre="Calendrier des messes (Google Calendar)">
+        <Champ label="ID Google Calendar des messes" hint="Calendrier public pour les messes">
           <Input
-            valeur={form.google_calendar_id}
-            onChange={v => onChange('google_calendar_id', v)}
+            valeur={form.google_calendar_messes_id}
+            onChange={v => onChange('google_calendar_messes_id', v)}
             placeholder="Ex : abc123@group.calendar.google.com"
           />
         </Champ>
-      </Carte>
-
-      {!calendarId && (
-        <div style={{
-          background: C.blanc, borderRadius: 10, border: `1px solid ${C.bordure}`,
-          padding: 40, textAlign: 'center', color: C.texteSecondaire,
-        }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>📅</div>
-          <p style={{ margin: 0, fontWeight: 600, color: '#111827' }}>Aucun Google Calendar configuré</p>
-          <p style={{ margin: '8px 0 16px', fontSize: 13 }}>
-            Pour afficher les prochains événements ici, renseignez un ID Google Calendar public ci-dessus.
-          </p>
-        </div>
-      )}
-
-      {calendarId && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{
-            background: C.blanc, borderRadius: 10, border: `1px solid ${C.bordure}`,
-            padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-          }}>
-            <div>
-              <p style={{ margin: 0, fontWeight: 600, color: '#111827', fontSize: 14 }}>Prochains événements</p>
-              <p style={{ margin: '4px 0 0', color: C.texteSecondaire, fontSize: 12 }}>
-                Source: Google Calendar ({calendarId})
-              </p>
-            </div>
-            <a
-              href={`https://calendar.google.com/calendar/u/0/r?cid=${encodeURIComponent(calendarId)}`}
-              target="_blank"
-              rel="noreferrer"
-              style={{ fontSize: 12, color: C.primaire, textDecoration: 'underline', whiteSpace: 'nowrap' }}
-            >
-              Ouvrir dans Google Calendar
-            </a>
+        <Champ label="Synchronisation MesseInfo" hint="Choisissez comment synchroniser les messes avec MesseInfo.">
+          <div style={{ display: 'flex', gap: 18, marginTop: 6 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 15, cursor: 'pointer' }}>
+              <input
+                type="radio"
+                name="messeinfo_sync_mode"
+                checked={messeinfoSyncMode === ''}
+                onChange={() => onChange('messeinfo_sync_mode', '')}
+              />
+              Pas de synchronisation
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 15, cursor: 'pointer' }}>
+              <input
+                type="radio"
+                name="messeinfo_sync_mode"
+                checked={messeinfoSyncMode === 'import'}
+                onChange={() => onChange('messeinfo_sync_mode', 'import')}
+              />
+              {messeInfoLogo}Importer depuis MesseInfo
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 15, cursor: 'pointer' }}>
+              <input
+                type="radio"
+                name="messeinfo_sync_mode"
+                checked={messeinfoSyncMode === 'export'}
+                onChange={() => onChange('messeinfo_sync_mode', 'export')}
+              />
+              {messeInfoLogo}Exporter vers MesseInfo
+            </label>
           </div>
-          <div style={{
-            background: C.blanc, borderRadius: 10, border: `1px solid ${C.bordure}`,
-            overflow: 'hidden',
-          }}>
+          <div style={{ fontSize: 12, color: C.texteSecondaire, marginTop: 4, marginLeft: 2 }}>
+            <span><b>Importer</b> : les messes sont récupérées automatiquement depuis MesseInfo.<br /></span>
+            <span><b>Exporter</b> : les messes saisies ici sont envoyées vers MesseInfo.<br /></span>
+            <span><b>Pas de synchronisation</b> : aucune connexion avec MesseInfo.</span>
+          </div>
+        </Champ>
+        {!calendarMessesId && (
+          <div style={{ background: C.blanc, borderRadius: 10, border: `1px solid ${C.bordure}`, padding: 24, textAlign: 'center', color: C.texteSecondaire }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>⛪</div>
+            <p style={{ margin: 0, fontWeight: 600, color: '#111827' }}>Aucun calendrier messes configuré</p>
+            <p style={{ margin: '8px 0 16px', fontSize: 13 }}>Renseignez un ID Google Calendar public ci-dessus.<br/>À défaut, le calendrier de la chapelle des Buis est affiché ci-dessous.</p>
             <iframe
-              title="Agenda Google Calendar"
-              src={`https://calendar.google.com/calendar/embed?src=${encodeURIComponent(calendarId)}&mode=AGENDA&showTitle=0&showDate=1&showNav=0&showPrint=0&showTz=0&showCalendars=0&hl=fr&wkst=2`}
-              style={{ width: '100%', height: 640, border: 0, display: 'block' }}
+              title="Agenda Messes par défaut"
+              src="https://calendar.google.com/calendar/embed?src=ZTNiMjI2ZmJjYzM5ZGMxMGQwZjliOThlNzNhZDhlOGI1NTZlNjRmZTQ2YThmYTcyMDMxYjI0NTJmYTMzZjQyOUBncm91cC5jYWxlbmRhci5nb29nbGUuY29t&mode=AGENDA&showTitle=0&showDate=1&showNav=0&showPrint=0&showTz=0&showCalendars=0&hl=fr&wkst=2"
+              style={{ width: '100%', height: 400, border: 0, display: 'block', marginTop: 12 }}
             />
           </div>
-        </div>
-      )}
+        )}
+        {calendarMessesId && (
+          <div style={{ marginTop: 12 }}>
+            <iframe
+              title="Agenda Messes"
+              src={`https://calendar.google.com/calendar/embed?src=${encodeURIComponent(calendarMessesId)}&mode=AGENDA&showTitle=0&showDate=1&showNav=0&showPrint=0&showTz=0&showCalendars=0&hl=fr&wkst=2`}
+              style={{ width: '100%', height: 400, border: 0, display: 'block' }}
+            />
+          </div>
+        )}
+      </Carte>
+
+      <Carte titre="Calendrier des autres événements (Google Calendar)">
+        <Champ label="ID Google Calendar des autres événements" hint="Calendrier public pour les autres événements (hors messes)">
+          <Input
+            valeur={form.google_calendar_evenements_id}
+            onChange={v => onChange('google_calendar_evenements_id', v)}
+            placeholder="Ex : def456@group.calendar.google.com"
+          />
+        </Champ>
+        {!calendarEvenementsId && (
+          <div style={{ background: C.blanc, borderRadius: 10, border: `1px solid ${C.bordure}`, padding: 24, textAlign: 'center', color: C.texteSecondaire }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>🎉</div>
+            <p style={{ margin: 0, fontWeight: 600, color: '#111827' }}>Aucun calendrier événements configuré</p>
+            <p style={{ margin: '8px 0 16px', fontSize: 13 }}>Renseignez un ID Google Calendar public ci-dessus.<br/>À défaut, le calendrier de la chapelle des Buis est affiché ci-dessous.</p>
+            <iframe
+              title="Agenda Événements par défaut"
+              src="https://calendar.google.com/calendar/embed?src=ZTNiMjI2ZmJjYzM5ZGMxMGQwZjliOThlNzNhZDhlOGI1NTZlNjRmZTQ2YThmYTcyMDMxYjI0NTJmYTMzZjQyOUBncm91cC5jYWxlbmRhci5nb29nbGUuY29t&mode=AGENDA&showTitle=0&showDate=1&showNav=0&showPrint=0&showTz=0&showCalendars=0&hl=fr&wkst=2"
+              style={{ width: '100%', height: 400, border: 0, display: 'block', marginTop: 12 }}
+            />
+          </div>
+        )}
+        {calendarEvenementsId && (
+          <div style={{ marginTop: 12 }}>
+            <iframe
+              title="Agenda Événements"
+              src={`https://calendar.google.com/calendar/embed?src=${encodeURIComponent(calendarEvenementsId)}&mode=AGENDA&showTitle=0&showDate=1&showNav=0&showPrint=0&showTz=0&showCalendars=0&hl=fr&wkst=2`}
+              style={{ width: '100%', height: 400, border: 0, display: 'block' }}
+            />
+          </div>
+        )}
+      </Carte>
     </div>
   );
 }
