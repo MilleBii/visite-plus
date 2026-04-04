@@ -126,36 +126,35 @@ function GestionnaireRotation({ modeRotation, onRotation }) {
 
 // ─── Composant principal ──────────────────────────────────────────────────────
 
+
 export default function OngletPlan({ egliseId }) {
-      // Ajout d'un POI sur clic carte
-      async function surClicCarte(positionVue) {
-        if (!modePlacement) return;
-        const position = positionVersStockage(positionVue);
-        const indexType = pois.filter(p => p.type === modePlacement).length + 1;
-        const titreDefaut = `${typeConfig[modePlacement]?.label || 'POI'} ${indexType}`;
-        const donnees = {
-          eglise_id: egliseId,
-          type: modePlacement,
-          position,
-          titre: titreDefaut,
-          photo: '',
-          texte_resume: '',
-          texte_comprendre: '',
-          texte_historique: '',
-          texte_bible: '',
-        };
-        const { data, error } = await supabase.from('pois').insert(donnees).select().single();
-        if (error || !data) {
-          setErreur(error?.message || 'Impossible de créer le POI');
-          return;
-        }
-        setPois(ps => [...ps, data]);
-        setPoiActif(data);
-        setFormPoi({ ...data });
-      }
-    function basculerModeRotation() {
-      setModeRotation(m => !m)
-    }
+  // TOUS LES HOOKS D'ABORD !
+  // Suppression de la rotation et de la boussole
+  const mapDivRef = useRef();
+
+  const [eglise, setEglise] = useState(null)
+  const [pois, setPois] = useState([])
+  const [chargement, setChargement] = useState(true)
+  const [erreur, setErreur] = useState(null)
+
+
+
+  const [modePlacement, setModePlacement] = useState(null)
+  const [poiActif, setPoiActif] = useState(null)
+  const [langue, setLangue] = useState('fr')
+  const [formPoi, setFormPoi] = useState(null)
+  const [sauvegarde, setSauvegarde] = useState(false)
+  const [photoFile, setPhotoFile] = useState(null)
+  const [photoPreview, setPhotoPreview] = useState('')
+
+  const mapRef = useRef(null)
+  const photoPreviewRef = useRef('')
+
+  const [osmPropose, setOsmPropose] = useState(null)
+  const [osmRecherche, setOsmRecherche] = useState(false)
+  const [osmErreur, setOsmErreur] = useState(null)
+  const [osmValide, setOsmValide] = useState(false)
+
   // Chargement des données église + POI
   useEffect(() => {
     if (!egliseId) return;
@@ -177,32 +176,32 @@ export default function OngletPlan({ egliseId }) {
     });
   }, [egliseId]);
 
-  // TOUS LES HOOKS D'ABORD !
-  const [eglise, setEglise] = useState(null)
-  const [pois, setPois] = useState([])
-  const [chargement, setChargement] = useState(true)
-  const [erreur, setErreur] = useState(null)
-
-  const [angle, setAngle] = useState(0)
-  const [angleSauvegarde, setAngleSauvegarde] = useState(0)
-  const [sauvegardeAngle, setSauvegardeAngle] = useState(false)
-  const [modeRotation, setModeRotation] = useState(false)
-
-  const [modePlacement, setModePlacement] = useState(null)
-  const [poiActif, setPoiActif] = useState(null)
-  const [langue, setLangue] = useState('fr')
-  const [formPoi, setFormPoi] = useState(null)
-  const [sauvegarde, setSauvegarde] = useState(false)
-  const [photoFile, setPhotoFile] = useState(null)
-  const [photoPreview, setPhotoPreview] = useState('')
-
-  const mapRef = useRef(null)
-  const photoPreviewRef = useRef('')
-
-  const [osmPropose, setOsmPropose] = useState(null)
-  const [osmRecherche, setOsmRecherche] = useState(false)
-  const [osmErreur, setOsmErreur] = useState(null)
-  const [osmValide, setOsmValide] = useState(false)
+  // Ajout d'un POI sur clic carte
+  async function surClicCarte(positionVue) {
+    if (!modePlacement) return;
+    const position = positionVue;
+    const indexType = pois.filter(p => p.type === modePlacement).length + 1;
+    const titreDefaut = `${typeConfig[modePlacement]?.label || 'POI'} ${indexType}`;
+    const donnees = {
+      eglise_id: egliseId,
+      type: modePlacement,
+      position,
+      titre: titreDefaut,
+      photo: '',
+      texte_resume: '',
+      texte_comprendre: '',
+      texte_historique: '',
+      texte_bible: '',
+    };
+    const { data, error } = await supabase.from('pois').insert(donnees).select().single();
+    if (error || !data) {
+      setErreur(error?.message || 'Impossible de créer le POI');
+      return;
+    }
+    setPois(ps => [...ps, data]);
+    setPoiActif(data);
+    setFormPoi({ ...data });
+  }
 
   // ENSUITE SEULEMENT, LES RETOURS CONDITIONNELS
   if (!egliseId) {
@@ -221,62 +220,14 @@ export default function OngletPlan({ egliseId }) {
         <p style={{ color: C.texteSecondaire, fontSize: 16 }}>Aucun plan OSM disponible pour cette église.</p>
         {osmErreur && <div style={{ color: C.danger, marginBottom: 12 }}>{osmErreur}</div>}
         <RechercheNominatim eglise={eglise} setOsmPropose={setOsmPropose} />
-        <button
-          onClick={async () => {
-            setOsmRecherche(true); setOsmErreur(null)
-            try {
-              // Recherche OSM via Nominatim
-              const nom = eglise?.nom || ''
-              const ville = eglise?.ville || ''
-              const query = `[out:json][timeout:25];area["name"="${ville}"][admin_level=8];(way["building"]["name"~"${nom}"](area);relation["building"]["name"~"${nom}"](area););out geom;`;
-              const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`
-              const res = await fetch(url)
-              const json = await res.json()
-              const poly = (json.elements.find(e => e.type === 'way' && e.geometry) || json.elements.find(e => e.type === 'relation' && e.members?.[0]?.geometry))
-              let rings = []
-              if (poly?.geometry) rings = [[...poly.geometry.map(pt => [pt.lat, pt.lon])]]
-              else if (poly?.members) rings = poly.members.filter(m => m.geometry).map(m => m.geometry.map(pt => [pt.lat, pt.lon]))
-              if (rings.length === 0) throw new Error('Aucun polygone trouvé sur OSM')
-              setOsmPropose(rings)
-            } catch (e) {
-              setOsmErreur('Aucun polygone trouvé sur OpenStreetMap pour cette église.')
-            }
-            setOsmRecherche(false)
-          }}
-          disabled={osmRecherche}
-          style={{ background: C.primaire, color: '#fff', border: 'none', borderRadius: 6, padding: '10px 22px', fontSize: 15, fontWeight: 600, cursor: osmRecherche ? 'wait' : 'pointer' }}
-        >
-          {osmRecherche ? 'Recherche en cours…' : 'Chercher le plan sur OpenStreetMap'}
-        </button>
       </div>
     )
   }
 
   // Affichage du polygone proposé AVANT validation (osmPropose)
   if (osmPropose) {
-    // Logique de rotation et boussole pour la proposition OSM
-    const [anglePropose, setAnglePropose] = React.useState(0);
-    const [modeRotationPropose, setModeRotationPropose] = React.useState(false);
-    // Rotation utilitaire
-    function rotateRing(ring, angleDeg) {
-      // Centre du polygone
-      const latC = ring.reduce((s, p) => s + p[0], 0) / ring.length;
-      const lonC = ring.reduce((s, p) => s + p[1], 0) / ring.length;
-      const a = angleDeg * Math.PI / 180;
-      return ring.map(([lat, lon]) => {
-        const x = (lon - lonC) * 111320 * Math.cos(latC * Math.PI / 180);
-        const y = (lat - latC) * 111320;
-        const xr = x * Math.sin(a) + y * Math.cos(a);
-        const yr = x * Math.cos(a) - y * Math.sin(a);
-        const latNew = latC + yr / 111320;
-        const lonNew = lonC + xr / (111320 * Math.cos(latC * Math.PI / 180));
-        return [latNew, lonNew];
-      });
-    }
-    // Appliquer la rotation à tous les rings
-    const rotatedRings = osmPropose.map(ring => rotateRing(ring, anglePropose));
-    // Calculer les bounds du polygone proposé (après rotation)
-    const allPoints = rotatedRings.flat().filter(([lat, lon]) =>
+    // Pas de rotation, juste affichage brut
+    const allPoints = osmPropose.flat().filter(([lat, lon]) =>
       typeof lat === 'number' && typeof lon === 'number' && !isNaN(lat) && !isNaN(lon)
     );
     const lats = allPoints.map(([lat, lon]) => lat);
@@ -285,32 +236,9 @@ export default function OngletPlan({ egliseId }) {
       [Math.min(...lats), Math.min(...lons)],
       [Math.max(...lats), Math.max(...lons)]
     ];
-    // Gestion molette pour rotation
-    const mapDivRef = React.useRef();
-    React.useEffect(() => {
-      if (!modeRotationPropose) return;
-      const handler = e => {
-        e.preventDefault();
-        setAnglePropose(a => a + (e.deltaY > 0 ? 1 : -1));
-      };
-      const el = mapDivRef.current;
-      if (el) el.addEventListener('wheel', handler, { passive: false });
-      return () => { if (el) el.removeEventListener('wheel', handler); };
-    }, [modeRotationPropose]);
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 108px)', minHeight: 400, borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.bordure}` }}>
         <div style={{ flex: 1, minHeight: 0, position: 'relative' }} ref={mapDivRef}>
-          {/* Rose des vents et rotation */}
-          <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-            <RoseDesVents
-              angle={anglePropose}
-              actif={modeRotationPropose}
-              onClick={() => setModeRotationPropose(m => !m)}
-            />
-            <span style={{ fontSize: 10, color: modeRotationPropose ? C.primaire : C.texteSecondaire, fontWeight: modeRotationPropose ? 600 : 400, background: C.blanc, padding: '2px 6px', borderRadius: 4, border: `1px solid ${C.bordure}` }}>
-              {modeRotationPropose ? '↕ molette = rotation' : `${((anglePropose % 360) + 360) % 360}°`}
-            </span>
-          </div>
           <MapContainer
             style={{ height: '100%', width: '100%', background: '#F0EDE8' }}
             bounds={bounds}
@@ -320,7 +248,7 @@ export default function OngletPlan({ egliseId }) {
             crs={L.CRS.Simple}
           >
             <Pane name="planPreviewPane" style={{ zIndex: 300 }}>
-              {rotatedRings.map((ring, i) => (
+              {osmPropose.map((ring, i) => (
                 <Polygon
                   key={i}
                   positions={ring}
@@ -333,8 +261,7 @@ export default function OngletPlan({ egliseId }) {
           <div style={{ position: 'absolute', bottom: 24, left: 0, width: '100%', display: 'flex', justifyContent: 'center', gap: 16, zIndex: 1000 }}>
             <button onClick={async () => {
               setOsmValide(true)
-              // On sauvegarde l'angle avec le polygone
-              await supabase.from('eglises').update({ osm_footprint_json: JSON.stringify(rotatedRings), osm_rotation_angle: anglePropose }).eq('id', egliseId)
+              await supabase.from('eglises').update({ osm_footprint_json: JSON.stringify(osmPropose) }).eq('id', egliseId)
               window.location.reload()
             }} style={{ background: C.primaire, color: '#fff', border: 'none', borderRadius: 6, padding: '14px 32px', fontSize: 17, fontWeight: 700, cursor: 'pointer' }}>Valider et enregistrer</button>
             <button onClick={() => setOsmPropose(null)} style={{ background: '#fff', color: C.danger, border: `2px solid ${C.danger}`, borderRadius: 6, padding: '14px 32px', fontSize: 17, fontWeight: 700, cursor: 'pointer' }}>Annuler</button>
@@ -344,17 +271,25 @@ export default function OngletPlan({ egliseId }) {
     )
   }
 
-  const { footprint, bounds } = buildLocal(footprintGps, angle)
-  const { bounds: boundsSauvegardes } = buildLocal(footprintGps, angleSauvegarde)
-  const centreRotation = centreBounds(boundsSauvegardes)
-  const deltaAngle = angle - angleSauvegarde
+
+  // Pas de rotation, on affiche tel quel
+  const footprint = footprintGps;
+  const allPoints = footprint.flat().filter(([lat, lon]) =>
+    typeof lat === 'number' && typeof lon === 'number' && !isNaN(lat) && !isNaN(lon)
+  );
+  const lats = allPoints.map(([lat, lon]) => lat);
+  const lons = allPoints.map(([lat, lon]) => lon);
+  const bounds = [
+    [Math.min(...lats), Math.min(...lons)],
+    [Math.max(...lats), Math.max(...lons)]
+  ];
 
   function positionVersVue(positionStockee) {
-    return rotationPoint(positionStockee, centreRotation, -deltaAngle)
+    return positionStockee;
   }
 
   function positionVersStockage(positionVue) {
-    return rotationPoint(positionVue, centreRotation, deltaAngle)
+    return positionVue;
   }
 
   return (
@@ -392,26 +327,7 @@ export default function OngletPlan({ egliseId }) {
         {/* Plan Leaflet */}
         <div style={{ flex: 1, position: 'relative', minHeight: 0, height: '100%' }}>
 
-          {/* Rose des vents */}
-          <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-            <RoseDesVents
-              angle={angle}
-              actif={modeRotation}
-              onClick={basculerModeRotation}
-            />
-            <span style={{ fontSize: 10, color: modeRotation ? C.primaire : C.texteSecondaire, fontWeight: modeRotation ? 600 : 400, background: C.blanc, padding: '2px 6px', borderRadius: 4, border: `1px solid ${C.bordure}` }}>
-              {modeRotation ? '↕ molette = rotation' : `${((angle % 360) + 360) % 360}°`}
-            </span>
-            {angle !== angleSauvegarde && (
-              <button onClick={sauvegarderAngle} disabled={sauvegardeAngle} style={{
-                padding: '4px 10px', borderRadius: 6, border: 'none',
-                background: C.primaire, color: '#fff', fontSize: 11, fontWeight: 600,
-                cursor: 'pointer', opacity: sauvegardeAngle ? 0.6 : 1,
-              }}>
-                {sauvegardeAngle ? '…' : '💾 Enregistrer'}
-              </button>
-            )}
-          </div>
+
 
           <div style={{ height: '100%', minHeight: 0 }}>
           <MapContainer
@@ -431,12 +347,8 @@ export default function OngletPlan({ egliseId }) {
           >
             <ZoomControl position="topleft" />
             <GestionnaireClic modePlacement={modePlacement} onClic={surClicCarte} />
-            <GestionnaireCurseur modePlacement={modePlacement} modeRotation={modeRotation} />
+            <GestionnaireCurseur modePlacement={modePlacement} modeRotation={false} />
             <BoutonAutoFit bounds={bounds} />
-            <GestionnaireRotation
-              modeRotation={modeRotation}
-              onRotation={delta => setAngle(a => a + delta)}
-            />
             <Pane name="planPane" style={{ zIndex: 300 }}>
               <Polygon
                 positions={footprint}
@@ -631,45 +543,7 @@ function BoutonAutoFit({ bounds }) {
   )
 }
 
-function RoseDesVents({ angle, actif, onClick }) {
-  return (
-    <div
-      onClick={onClick}
-      title={actif ? 'Cliquer pour quitter le mode rotation' : 'Cliquer pour activer la rotation (molette)'}
-      style={{
-        width: 64, height: 64, cursor: 'pointer',
-        borderRadius: '50%',
-        background: actif ? '#F0FDF4' : C.blanc,
-        border: `2px solid ${actif ? C.primaire : C.bordure}`,
-        boxShadow: actif ? `0 0 0 3px rgba(27,67,50,0.15)` : '0 2px 8px rgba(0,0,0,0.1)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transition: 'all 0.15s',
-      }}
-    >
-      <svg width="52" height="52" viewBox="0 0 52 52" style={{ transform: `rotate(${angle}deg)`, transition: 'transform 0.05s', display: 'block' }}>
-        {/* N - vert foncé */}
-        <polygon points="26,3 29.5,24 26,21 22.5,24" fill={C.primaire} />
-        {/* S - gris */}
-        <polygon points="26,49 29.5,28 26,31 22.5,28" fill="#C0BDB9" />
-        {/* E */}
-        <polygon points="49,26 28,22.5 31,26 28,29.5" fill="#9CA3AF" />
-        {/* W */}
-        <polygon points="3,26 24,22.5 21,26 24,29.5" fill="#9CA3AF" />
-        {/* NE */}
-        <polygon points="44,8 30,24 28,22 30,20" fill="#D1D5DB" />
-        {/* NW */}
-        <polygon points="8,8 22,24 24,22 22,20" fill="#D1D5DB" />
-        {/* SE */}
-        <polygon points="44,44 30,28 28,30 30,32" fill="#D1D5DB" />
-        {/* SW */}
-        <polygon points="8,44 22,28 24,30 22,32" fill="#D1D5DB" />
-        {/* Centre */}
-        <circle cx="26" cy="26" r="4" fill="white" stroke={C.primaire} strokeWidth="1.5" />
-        {/* N label — reste fixe visuellement via contre-rotation */}
-      </svg>
-    </div>
-  )
-}
+
 
 function ChampForm({ label, children }) {
   return (
