@@ -94,9 +94,9 @@ class _AccueilScreenState extends State<AccueilScreen> {
               if (_debounce?.isActive ?? false) _debounce!.cancel();
               _debounce = Timer(const Duration(milliseconds: 200), () {
                 setState(() {
-                  _filteredEglises = _allEglises
-                      .where((e) => e.nom.toLowerCase().contains(_search.toLowerCase()))
-                      .toList();
+                      _filteredEglises = _allEglises
+                        .where((e) => e.nom.toLowerCase().contains(_search.toLowerCase()))
+                        .toList();
                 });
               });
             },

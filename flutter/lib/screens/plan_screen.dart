@@ -282,96 +282,92 @@ class _PlanScreenState extends State<PlanScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0EDE8),
-      body: Stack(
-        children: [
-          // ── Plan interactif ──────────────────────────────────────────────
-          Positioned.fill(
-            top: 70, // sous le header
-            bottom: bottomPlanInset,
-            child: _PlanView(
-              footprintCanvas: _footprintCanvas,
-              canvasWidth: _mapper.canvasWidth,
-              canvasHeight: _mapper.canvasHeight,
-              pois: _pois,
-              poiSelectionne: _poiSelectionne,
-              getPoiPosition: _poiCanvasPosition,
-              onPoiTap: (poi) => setState(() => _poiSelectionne = poi),
-              planImage: _eglise?.planImage,
-            ),
-          ),
-
-          // ── Header ───────────────────────────────────────────────────────
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              color: Colors.white,
-              padding: EdgeInsets.only(
-                top: MediaQuery.of(context).padding.top + 8,
-                left: 8,
-                right: 16,
-                bottom: 10,
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => context.pop(),
-                    color: const Color(0xFF1C1917),
-                  ),
-                  const SizedBox(width: 4),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'Plan de l\'église',
-                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Color(0xFF1C1917)),
-                      ),
-                      Text(
-                        '${_eglise?.nom ?? ''} · OpenStreetMap',
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF78716C)),
-                      ),
-                    ],
-                  ),
-                ],
+      body: SafeArea(
+        child: Stack(
+          children: [
+            // ── Plan interactif ──────────────────────────────────────────────
+            Positioned.fill(
+              top: 70, // sous le header
+              bottom: bottomPlanInset,
+              child: _PlanView(
+                footprintCanvas: _footprintCanvas,
+                canvasWidth: _mapper.canvasWidth,
+                canvasHeight: _mapper.canvasHeight,
+                pois: _pois,
+                poiSelectionne: _poiSelectionne,
+                getPoiPosition: _poiCanvasPosition,
+                onPoiTap: (poi) => setState(() => _poiSelectionne = poi),
+                planImage: _eglise?.planImage,
               ),
             ),
-          ),
 
-          // ── Légende ──────────────────────────────────────────────────────
-          if (_poiSelectionne == null)
+            // ── Header ───────────────────────────────────────────────────────
             Positioned(
-              bottom: MediaQuery.of(context).padding.bottom + 16,
+              top: 0,
               left: 0,
               right: 0,
-              child: const _Legende(),
-            ),
-
-          // ── Panneau POI bas ───────────────────────────────────────────────
-          if (_poiSelectionne != null)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: _PanneauPoiBas(
-                poi: _poiSelectionne!,
-                onFermer: () => setState(() => _poiSelectionne = null),
-                onOuvrir: () => context.push(
-                  '/eglise/${widget.slug}/poi/${_poiSelectionne!.id}',
+              child: Container(
+                color: Colors.white,
+                padding: EdgeInsets.only(
+                  top: MediaQuery.of(context).padding.top + 8,
+                  left: 8,
+                  right: 16,
+                  bottom: 10,
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => context.pop(),
+                      color: const Color(0xFF1C1917),
+                    ),
+                    const SizedBox(width: 4),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'Plan de l\'église',
+                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Color(0xFF1C1917)),
+                        ),
+                        Text(
+                          '${_eglise?.nom ?? ''} · OpenStreetMap',
+                          style: const TextStyle(fontSize: 11, color: Color(0xFF78716C)),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
-        ],
+
+            // ── Légende ──────────────────────────────────────────────────────
+            if (_poiSelectionne == null)
+              Positioned(
+                bottom: MediaQuery.of(context).padding.bottom + 16,
+                left: 0,
+                right: 0,
+                child: const _Legende(),
+              ),
+
+            // ── Panneau POI bas ───────────────────────────────────────────────
+            if (_poiSelectionne != null)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: _PanneauPoiBas(
+                  poi: _poiSelectionne!,
+                  onFermer: () => setState(() => _poiSelectionne = null),
+                  onOuvrir: () {},
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 }
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Widget plan avec InteractiveViewer
-// ──────────────────────────────────────────────────────────────────────────────
 class _PlanView extends StatelessWidget {
   final List<Offset> footprintCanvas;
   final double canvasWidth, canvasHeight;

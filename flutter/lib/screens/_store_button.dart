@@ -3,14 +3,13 @@ import 'package:url_launcher/url_launcher.dart';
 
 const _googlePlayColor = Color(0xFF34A853);
 const _appStoreColor = Colors.black;
+
 class StoreButton extends StatelessWidget {
   final String label;
-  final IconData icon;
   final String url;
 
   const StoreButton({
     required this.label,
-    required this.icon,
     required this.url,
   });
 
@@ -18,6 +17,7 @@ class StoreButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final isApple = label.toLowerCase().contains('apple') || label.toLowerCase().contains('store');
     final bgColor = label == 'App Store' ? _appStoreColor : _googlePlayColor;
+    final icon = label == 'App Store' ? Icons.apple : Icons.android;
     return ElevatedButton.icon(
       style: ElevatedButton.styleFrom(
         backgroundColor: bgColor,

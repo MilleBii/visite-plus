@@ -45,3 +45,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/badges/app-store-badge.png
+    - assets/badges/google-play-badge.png

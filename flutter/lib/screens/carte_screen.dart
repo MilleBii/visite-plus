@@ -233,8 +233,10 @@ class _CarteScreenState extends State<CarteScreen> {
                         _search = value;
                         _showSearchResults = value.isNotEmpty;
                         _filteredEglises = _eglises
-                            .where((e) => e.nom.toLowerCase().contains(_search.toLowerCase()))
-                            .toList();
+                          .where((e) =>
+                            e.nom.toLowerCase().contains(_search.toLowerCase()) ||
+                            e.ville.toLowerCase().contains(_search.toLowerCase()))
+                          .toList();
                       });
                     },
                   ),
@@ -253,13 +255,11 @@ class _CarteScreenState extends State<CarteScreen> {
                 children: [
                   StoreButton(
                     label: 'App Store',
-                    icon: Icons.apple,
                     url: 'https://apps.apple.com/app/visite-plus/id0000000000',
                   ),
                   const SizedBox(width: 16),
                   StoreButton(
                     label: 'Google Play',
-                    icon: Icons.android,
                     url: 'https://play.google.com/store/apps/details?id=fr.visite_plus.app',
                   ),
                 ],
