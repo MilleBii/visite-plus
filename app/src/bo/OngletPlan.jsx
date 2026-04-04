@@ -1,3 +1,34 @@
+// ─── Normalisation des polygones (rétrocompatibilité + GeoJSON) ─────────────
+// Accepte :
+// - [ [lat, lon], ... ] (ancien)
+// - [ [ [lat, lon], ... ] ] (ancien multi)
+// - GeoJSON Polygon : { type: 'Polygon', coordinates: [ [ [lon, lat], ... ] ] }
+function normaliserPolygone(input) {
+  if (!input) return [];
+  // Cas GeoJSON
+  if (input.type === 'Polygon' && Array.isArray(input.coordinates)) {
+    // On inverse [lon, lat] -> [lat, lon]
+    return input.coordinates.map(ring => ring.map(([lon, lat]) => [lat, lon]));
+  }
+  // Cas tableau de tableaux (multi-anneaux)
+  if (Array.isArray(input) && Array.isArray(input[0]) && Array.isArray(input[0][0])) {
+    // On vérifie si c'est [ [ [lat, lon], ... ] ] ou [ [ [lon, lat], ... ] ]
+    // On suppose que si la première coordonnée est dans la zone France, c'est [lat, lon]
+    const first = input[0][0];
+    if (first[0] > 40 && first[0] < 52 && first[1] > -5 && first[1] < 10) {
+      return input;
+    } else {
+      // Probablement [ [ [lon, lat], ... ] ]
+      return input.map(ring => ring.map(([lon, lat]) => [lat, lon]));
+    }
+  }
+  // Cas simple tableau de points
+  if (Array.isArray(input) && Array.isArray(input[0]) && typeof input[0][0] === 'number') {
+    // [ [lat, lon], ... ]
+    return [input];
+  }
+  return [];
+}
 import { useState, useEffect, useRef } from 'react'
 import { MapContainer, Marker, Pane, Polygon, ZoomControl, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
@@ -217,8 +248,9 @@ export default function OngletPlan({ egliseId }) {
   if (chargement) return <Placeholder texte="Chargement du plan…" />
   if (erreur) return <Placeholder texte={`Erreur : ${erreur}`} erreur />
 
-  const footprintGps = eglise?.osm_footprint_json ? JSON.parse(eglise.osm_footprint_json) : null
-  if (!footprintGps && !osmPropose) {
+  // Récupération footprint, normalisé (rétrocompatibilité)
+  const footprintGps = eglise?.osm_footprint_json ? normaliserPolygone(JSON.parse(eglise.osm_footprint_json)) : null;
+  if ((!footprintGps || footprintGps.length === 0) && !osmPropose) {
     console.log('[OngletPlan] Aucun polygone OSM disponible pour cette église. footprintGps:', footprintGps, 'osmPropose:', osmPropose);
     return (
       <div style={{ padding: 32, textAlign: 'center' }}>
@@ -231,8 +263,9 @@ export default function OngletPlan({ egliseId }) {
 
   // Affichage du polygone proposé AVANT validation (osmPropose)
   if (osmPropose) {
-    // Pas de rotation, juste affichage brut
-    const allPoints = osmPropose.flat().filter(([lat, lon]) =>
+    // On normalise la proposition (GeoJSON ou ancien format)
+    const proposeNorm = normaliserPolygone(osmPropose);
+    const allPoints = proposeNorm.flat().filter(([lat, lon]) =>
       typeof lat === 'number' && typeof lon === 'number' && !isNaN(lat) && !isNaN(lon)
     );
     const lats = allPoints.map(([lat, lon]) => lat);
@@ -254,7 +287,7 @@ export default function OngletPlan({ egliseId }) {
             crs={L.CRS.Simple}
           >
             <Pane name="planPreviewPane" style={{ zIndex: 300 }}>
-              {osmPropose.map((ring, i) => (
+              {proposeNorm.map((ring, i) => (
                 <Polygon
                   key={i}
                   positions={ring}
@@ -268,8 +301,13 @@ export default function OngletPlan({ egliseId }) {
             <button onClick={async () => {
               setOsmValide(true)
               console.log('[OngletPlan] Sauvegarde du polygone OSM, angle:', angle, 'osmPropose:', osmPropose);
+              // On sauvegarde en GeoJSON (Polygon)
+              const geojson = {
+                type: 'Polygon',
+                coordinates: proposeNorm.map(ring => ring.map(([lat, lon]) => [lon, lat]))
+              };
               await supabase.from('eglises').update({
-                osm_footprint_json: JSON.stringify(osmPropose),
+                osm_footprint_json: JSON.stringify(geojson),
                 osm_rotation_angle: angle ?? 0
               }).eq('id', egliseId)
               window.location.reload()
@@ -283,7 +321,7 @@ export default function OngletPlan({ egliseId }) {
 
 
   // Affichage du polygone sauvegardé avec gestion de l'angle
-  const { footprint, bounds } = footprintGps ? buildLocal(footprintGps, angle) : { footprint: [], bounds: [[0,0],[0,0]] };
+  const { footprint, bounds } = (footprintGps && footprintGps.length > 0) ? buildLocal(footprintGps[0], angle) : { footprint: [], bounds: [[0,0],[0,0]] };
   console.log('[OngletPlan] Affichage polygone sauvegardé, bounds:', bounds, 'footprint:', footprint, 'angle:', angle);
 
   function positionVersVue(positionStockee) {
