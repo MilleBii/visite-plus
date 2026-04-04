@@ -29,15 +29,17 @@ function RoseDesVents({ modeRotation, onClick, angle = 0 }) {
         }}
       >
         <circle cx="22" cy="22" r="21" fill="#fff" stroke={modeRotation ? '#B7881C' : '#B7881C'} strokeWidth={modeRotation ? 3 : 2} />
-        {/* Pointes cardinales réduites */}
-        <polygon points="22,9 24,22 22,16 20,22" fill="#B7881C" /> {/* N */}
-        <polygon points="22,35 24,22 22,28 20,22" fill="#78716C" /> {/* S */}
-        <polygon points="9,22 22,20 16,22 22,24" fill="#B7881C" /> {/* O */}
-        <polygon points="35,22 22,20 28,22 22,24" fill="#78716C" /> {/* E */}
-        <text x="22" y="13" textAnchor="middle" fontSize="10" fill="#B7881C" fontWeight="bold">N</text>
-        <text x="22" y="41" textAnchor="middle" fontSize="10" fill="#78716C">S</text>
-        <text x="35" y="25" textAnchor="middle" fontSize="10" fill="#78716C">E</text>
-        <text x="9" y="25" textAnchor="middle" fontSize="10" fill="#B7881C">O</text>
+        {/* Grandes pointes cardinales */}
+        {/* Nord (rouge) */}
+        <polygon points="22,5 25,22 22,13 19,22" fill="#D32F2F" />
+        {/* Sud */}
+        <polygon points="22,39 25,22 22,31 19,22" fill="#78716C" />
+        {/* Ouest */}
+        <polygon points="5,22 22,19 13,22 22,25" fill="#B7881C" />
+        {/* Est */}
+        <polygon points="39,22 22,19 31,22 22,25" fill="#78716C" />
+
+
         {modeRotation && (
           <circle cx="22" cy="22" r="16" fill="none" stroke="#B7881C" strokeWidth="2" strokeDasharray="4 4" />
         )}
