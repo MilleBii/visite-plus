@@ -1,13 +1,12 @@
 // ─── Rose des vents ────────────────────────────────────────────────────────
-function RoseDesVents({ modeRotation, onClick }) {
+function RoseDesVents({ modeRotation, onClick, angle = 0 }) {
   return (
     <div
       onClick={onClick}
       style={{
         position: 'absolute',
-        top: 16,
-        right: 16,
-        zIndex: 1200,
+        top: 0,
+        right: 0,
         background: modeRotation ? 'rgba(255,243,199,0.98)' : 'rgba(255,255,255,0.95)',
         border: modeRotation ? '2px solid #B7881C' : '1px solid #E7E5E4',
         borderRadius: 8,
@@ -22,7 +21,13 @@ function RoseDesVents({ modeRotation, onClick }) {
       }}
       title={modeRotation ? 'Mode rotation activé (molette = tourner)' : 'Activer le mode rotation'}
     >
-      <svg width="44" height="44" viewBox="0 0 44 44">
+      <svg
+        width="44" height="44" viewBox="0 0 44 44"
+        style={{
+          transform: `rotate(${-angle}deg)`,
+          transition: 'transform 0.2s',
+        }}
+      >
         <circle cx="22" cy="22" r="21" fill="#fff" stroke={modeRotation ? '#B7881C' : '#B7881C'} strokeWidth={modeRotation ? 3 : 2} />
         <polygon points="22,6 25,22 22,18 19,22" fill="#B7881C" />
         <polygon points="22,38 25,22 22,26 19,22" fill="#78716C" />
@@ -213,6 +218,30 @@ export default function OngletPlan({ egliseId }) {
   // Ajout de l'état angle (toujours 0 par défaut)
   const [angle, setAngle] = useState(0)
   const [modeRotation, setModeRotation] = useState(false)
+
+  // Sauvegarde l'angle en base quand on désactive le mode rotation
+  useEffect(() => {
+    // On ne sauvegarde et autozoom que lors du passage de true à false
+    if (!modeRotation) {
+      // Ne sauvegarder que si l'église est chargée
+      if (eglise && egliseId != null) {
+        (async () => {
+          await supabase.from('eglises').update({
+            osm_rotation_angle: angle ?? 0
+          }).eq('id', egliseId)
+        })();
+      }
+      // Autozoom sur le polygone
+      if (mapRef.current && bounds && bounds[0] && bounds[1]) {
+        try {
+          mapRef.current.fitBounds(bounds, { padding: [40, 40] });
+        } catch (e) {
+          // ignore erreur
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modeRotation]);
 
   const [modePlacement, setModePlacement] = useState(null)
   const [poiActif, setPoiActif] = useState(null)
@@ -422,7 +451,11 @@ export default function OngletPlan({ egliseId }) {
             zIndex: 1300,
             pointerEvents: 'auto',
           }}>
-            <RoseDesVents modeRotation={modeRotation} onClick={() => setModeRotation(m => !m)} />
+            <RoseDesVents
+              modeRotation={modeRotation}
+              onClick={() => setModeRotation(m => !m)}
+              angle={angle}
+            />
           </div>
 
           {/* Angle en bas à droite */}
