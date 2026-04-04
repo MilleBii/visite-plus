@@ -209,6 +209,16 @@ function GestionnaireRotation({ modeRotation, onRotation }) {
 
 
 export default function OngletPlan({ egliseId }) {
+      // Gère le déplacement d'un POI (drag)
+      async function surDeplacement(poi, nouvellePosition) {
+        const { error, data } = await supabase.from('pois').update({ position: nouvellePosition }).eq('id', poi.id).select().single();
+        if (!error && data) {
+          setPois(ps => ps.map(p => p.id === poi.id ? { ...p, position: nouvellePosition } : p));
+          if (formPoi && formPoi.id === poi.id) setFormPoi(fp => ({ ...fp, position: nouvellePosition }));
+        } else if (error) {
+          setErreur(error.message || 'Erreur lors du déplacement du POI');
+        }
+      }
     // Met à jour un champ du formulaire POI
     function champForm(champ, valeur) {
       setFormPoi(fp => ({ ...fp, [champ]: valeur }));
@@ -475,10 +485,29 @@ export default function OngletPlan({ egliseId }) {
       setFormPoi(poi);
     }
   return (
-    <div style={{ display: 'flex', height: 'calc(100vh - 108px)', gap: 0, borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.bordure}`, minHeight: 400 }}>
+    <div style={{
+      display: 'flex',
+      height: 'calc(100vh - 108px)',
+      maxHeight: 'calc(100vh - 108px)',
+      minHeight: 400,
+      gap: 0,
+      borderRadius: 10,
+      overflow: 'auto',
+      border: `1px solid ${C.bordure}`,
+      boxSizing: 'border-box',
+    }}>
 
       {/* Carte */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', height: '100%', minHeight: 0 }}>
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
+        height: '100%',
+        minHeight: 0,
+        maxHeight: '100%',
+        overflow: 'hidden',
+      }}>
 
         {/* Barre de types */}
         <div style={{ background: C.blanc, borderBottom: `1px solid ${C.bordure}`, padding: '10px 14px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -507,7 +536,14 @@ export default function OngletPlan({ egliseId }) {
         </div>
 
         {/* Plan Leaflet */}
-        <div style={{ flex: 1, position: 'relative', minHeight: 0, height: '100%' }}>
+        <div style={{
+          flex: 1,
+          position: 'relative',
+          minHeight: 0,
+          height: '100%',
+          maxHeight: '100%',
+          overflow: 'hidden',
+        }}>
           {/* Rose des vents interactive en haut à droite */}
           {/* Rose des vents seule en haut à droite */}
           <div style={{
@@ -545,7 +581,7 @@ export default function OngletPlan({ egliseId }) {
           }} title="Angle de rotation du plan">
             {Math.round((angle % 360 + 360) % 360)}°
           </div>
-          <div style={{ height: '100%', minHeight: 0 }}>
+          <div style={{ height: '100%', minHeight: 0, maxHeight: '100%', overflow: 'hidden' }}>
             <MapContainer
               key={0}
               crs={L.CRS.Simple}
@@ -575,29 +611,43 @@ export default function OngletPlan({ egliseId }) {
               </Pane>
 
               <Pane name="poiPane" style={{ zIndex: 650 }}>
-                {pois.map(poi => (
-                  <Marker
-                    key={poi.id}
-                    pane="poiPane"
-                    position={positionVersVue(poi.position)}
-                    icon={creerIcone(poi.type, poiActif?.id === poi.id)}
-                    draggable={true}
-                    bubblingMouseEvents={false}
-                    autoPan={false}
-                    autoPanOnFocus={false}
-                    eventHandlers={{
-                      click: (e) => {
-                        e.originalEvent?.stopPropagation?.()
-                        surClicPoi(poi)
-                      },
-                      dragstart: () => mapRef.current?.dragging?.disable(),
-                      dragend(e) {
-                        mapRef.current?.dragging?.enable()
-                        surDeplacement(poi, [e.target.getLatLng().lat, e.target.getLatLng().lng])
-                      },
-                    }}
-                  />
-                ))}
+                <div
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    transform: `rotate(${-angle}deg)`,
+                    transformOrigin: 'center center',
+                    pointerEvents: 'none',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                  }}
+                >
+                  {pois.map(poi => (
+                    <div key={poi.id} style={{ pointerEvents: 'auto' }}>
+                      <Marker
+                        pane="poiPane"
+                        position={positionVersVue(poi.position)}
+                        icon={creerIcone(poi.type, poiActif?.id === poi.id)}
+                        draggable={true}
+                        bubblingMouseEvents={false}
+                        autoPan={false}
+                        autoPanOnFocus={false}
+                        eventHandlers={{
+                          click: (e) => {
+                            e.originalEvent?.stopPropagation?.()
+                            surClicPoi(poi)
+                          },
+                          dragstart: () => mapRef.current?.dragging?.disable(),
+                          dragend(e) {
+                            mapRef.current?.dragging?.enable()
+                            surDeplacement(poi, [e.target.getLatLng().lat, e.target.getLatLng().lng])
+                          },
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
               </Pane>
             </MapContainer>
           </div>
@@ -607,7 +657,17 @@ export default function OngletPlan({ egliseId }) {
 
       {/* Panneau formulaire POI */}
       {formPoi ? (
-        <div style={{ width: 320, flexShrink: 0, background: C.blanc, borderLeft: `1px solid ${C.bordure}`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{
+          width: 320,
+          flexShrink: 0,
+          background: C.blanc,
+          borderLeft: `1px solid ${C.bordure}`,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          height: '100%',
+          maxHeight: '100%',
+        }}>
 
           {/* En-tête panneau */}
           <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.bordure}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -722,7 +782,19 @@ export default function OngletPlan({ egliseId }) {
 
         </div>
       ) : (
-        <div style={{ width: 260, flexShrink: 0, background: C.bg, borderLeft: `1px solid ${C.bordure}`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <div style={{
+          width: 260,
+          flexShrink: 0,
+          background: C.bg,
+          borderLeft: `1px solid ${C.bordure}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 24,
+          height: '100%',
+          maxHeight: '100%',
+          overflow: 'hidden',
+        }}>
           <p style={{ textAlign: 'center', color: C.texteSecondaire, fontSize: 13, lineHeight: 1.6 }}>
             Cliquez sur un POI existant pour l'éditer, ou utilisez les boutons ci-dessus pour en ajouter un.
           </p>

@@ -172,8 +172,42 @@ class _PlanScreenState extends State<PlanScreen> {
       debugPrint('[PlanScreen] buildCoords skipped: footprint null angleApplied=$_appliedAngle');
       return;
     }
-    final decoded = (jsonDecode(raw) as List)
-        .map((p) => [((p[0] as num).toDouble()), ((p[1] as num).toDouble())])
+    dynamic decodedJson;
+    try {
+      decodedJson = jsonDecode(raw);
+    } catch (e) {
+      debugPrint('[PlanScreen] Erreur décodage JSON footprint: $e');
+      return;
+    }
+
+    List coordsList;
+    bool isGeoJson = false;
+    // Si GeoJSON (objet avec type/coordinates)
+    if (decodedJson is Map && decodedJson.containsKey('coordinates')) {
+      isGeoJson = true;
+      final coords = decodedJson['coordinates'];
+      if (coords is List && coords.isNotEmpty) {
+        // Polygon: [ [ [lon, lat], ... ] ]
+        if (coords[0] is List && coords[0].isNotEmpty && coords[0][0] is List) {
+          coordsList = coords[0];
+        } else {
+          coordsList = coords;
+        }
+      } else {
+        debugPrint('[PlanScreen] GeoJSON coordinates vide');
+        return;
+      }
+    } else if (decodedJson is List) {
+      coordsList = decodedJson;
+    } else {
+      debugPrint('[PlanScreen] Format footprint non reconnu: $decodedJson');
+      return;
+    }
+
+    final decoded = coordsList
+        .map((p) => isGeoJson
+            ? [((p[1] as num).toDouble()), ((p[0] as num).toDouble())] // GeoJSON: [lon, lat] → [lat, lon]
+            : [((p[0] as num).toDouble()), ((p[1] as num).toDouble())])
         .toList();
     _coords = _CoordSystem.fromFootprint(decoded, _angle);
     final baseFootprintLocal = decoded.map((p) => _coords.toLocal(p[0], p[1])).toList();
@@ -184,8 +218,8 @@ class _PlanScreenState extends State<PlanScreen> {
     _footprintCenterLocal = Offset((minX + maxX) / 2, (minY + maxY) / 2);
 
     _footprintLocal = baseFootprintLocal
-      .map((p) => _rotateAround(p, _footprintCenterLocal, _polygonAngleOffsetDeg))
-      .toList();
+        .map((p) => _rotateAround(p, _footprintCenterLocal, _polygonAngleOffsetDeg))
+        .toList();
 
     _mapper = _CanvasMapper.from(_footprintLocal);
     _footprintCanvas = _footprintLocal.map(_mapper.toCanvas).toList();

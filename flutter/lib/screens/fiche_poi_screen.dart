@@ -24,43 +24,6 @@ class _FichePoiScreenState extends State<FichePoiScreen> {
   final FlutterTts _tts = FlutterTts();
   _TtsState _ttsState = _TtsState.stopped;
 
-  @override
-  void initState() {
-    super.initState();
-    _load();
-    _initTts();
-  }
-
-  @override
-  void dispose() {
-    _tts.stop();
-    super.dispose();
-  }
-
-  Future<void> _load() async {
-    final poi = await SupabaseService.fetchPoiById(widget.poiId);
-    if (!mounted) return;
-    setState(() {
-      _poi = poi;
-      _loading = false;
-    });
-    if (poi != null) {
-      SupabaseService.trackView(entiteType: 'poi', entiteId: poi.id);
-    }
-  }
-
-  Future<void> _initTts() async {
-    await _tts.setLanguage('fr-FR');
-    await _tts.setSpeechRate(0.5);
-    await _tts.setPitch(1.0);
-
-    _tts.setStartHandler(() => setState(() => _ttsState = _TtsState.playing));
-    _tts.setCompletionHandler(() => setState(() => _ttsState = _TtsState.stopped));
-    _tts.setPauseHandler(() => setState(() => _ttsState = _TtsState.paused));
-    _tts.setContinueHandler(() => setState(() => _ttsState = _TtsState.playing));
-    _tts.setErrorHandler((_) => setState(() => _ttsState = _TtsState.stopped));
-  }
-
   Future<void> _toggleTts() async {
     if (_poi == null) return;
     switch (_ttsState) {
@@ -165,26 +128,44 @@ class _FichePoiScreenState extends State<FichePoiScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    poi.titre,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1C1917),
-                      height: 1.2,
+
+                    const SizedBox(height: 16),
+                    // Nouvelle ligne : icône | titre | bouton play
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            color: cfg.color.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.all(8),
+                          child: Icon(cfg.icon, color: cfg.color, size: 28),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            poi.titre,
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF1C1917),
+                              height: 1.2,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        _TtsIconButton(
+                          state: _ttsState,
+                          onToggle: _toggleTts,
+                          onStop: _stopTts,
+                        ),
+                      ],
                     ),
-                  ),
 
-                  // ── Bouton audio guide ───────────────────────────────────
-                  const SizedBox(height: 14),
-                  _TtsButton(
-                    state: _ttsState,
-                    onToggle: _toggleTts,
-                    onStop: _stopTts,
-                  ),
-
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 24),
 
                   // ── Sections texte ───────────────────────────────────────
                   if (poi.texteResume != null && poi.texteResume!.isNotEmpty) ...[
@@ -217,66 +198,35 @@ class _FichePoiScreenState extends State<FichePoiScreen> {
 // ──────────────────────────────────────────────────────────────────────────────
 enum _TtsState { stopped, playing, paused }
 
-class _TtsButton extends StatelessWidget {
+class _TtsIconButton extends StatelessWidget {
   final _TtsState state;
   final VoidCallback onToggle;
   final VoidCallback onStop;
 
-  const _TtsButton({required this.state, required this.onToggle, required this.onStop});
+  const _TtsIconButton({required this.state, required this.onToggle, required this.onStop});
 
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        GestureDetector(
-          onTap: onToggle,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: state == _TtsState.stopped
-                  ? const Color(0xFF1B4332)
-                  : const Color(0xFF1B4332).withOpacity(0.85),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  state == _TtsState.playing ? Icons.pause : Icons.play_arrow,
-                  color: Colors.white,
-                  size: 18,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  state == _TtsState.stopped
-                      ? '▶ Écouter'
-                      : state == _TtsState.playing
-                          ? '⏸ Pause'
-                          : '▶ Reprendre',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
+        IconButton(
+          icon: Icon(
+            state == _TtsState.playing
+                ? Icons.pause_circle_filled
+                : Icons.play_circle_filled,
+            color: const Color(0xFF1B4332),
+            size: 32,
           ),
+          onPressed: onToggle,
+          tooltip: state == _TtsState.playing ? 'Pause' : 'Écouter',
         ),
-        if (state != _TtsState.stopped) ...[
-          const SizedBox(width: 10),
-          GestureDetector(
-            onTap: onStop,
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F4),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.stop, size: 18, color: Color(0xFF78716C)),
-            ),
+        if (state != _TtsState.stopped)
+          IconButton(
+            icon: const Icon(Icons.stop_circle, color: Color(0xFF78716C), size: 28),
+            onPressed: onStop,
+            tooltip: 'Arrêter',
           ),
-        ],
       ],
     );
   }
