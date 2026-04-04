@@ -209,6 +209,64 @@ function GestionnaireRotation({ modeRotation, onRotation }) {
 
 
 export default function OngletPlan({ egliseId }) {
+    // Met à jour un champ du formulaire POI
+    function champForm(champ, valeur) {
+      setFormPoi(fp => ({ ...fp, [champ]: valeur }));
+    }
+
+    // Réinitialise l'upload de photo
+    function resetUploadPhoto() {
+      setPhotoFile(null);
+      setPhotoPreview('');
+      if (photoPreviewRef.current?.startsWith('blob:')) {
+        URL.revokeObjectURL(photoPreviewRef.current);
+      }
+      photoPreviewRef.current = '';
+    }
+
+    // Enregistre le POI (update dans Supabase)
+    async function sauvegarderPoi() {
+      if (!formPoi) return;
+      setSauvegarde(true);
+      let photoUrl = formPoi.photo;
+      // Upload photo si nouveau fichier
+      if (photoFile) {
+        const ext = photoFile.name.split('.').pop();
+        const fileName = `poi_${formPoi.id}_${Date.now()}.${ext}`;
+        const { data, error } = await supabase.storage.from(POI_PHOTOS_BUCKET).upload(fileName, photoFile, { upsert: true });
+        if (!error) {
+          const { data: urlData } = supabase.storage.from(POI_PHOTOS_BUCKET).getPublicUrl(fileName);
+          photoUrl = urlData.publicUrl;
+        }
+      }
+      const { error: updateError, data: updated } = await supabase.from('pois').update({
+        ...formPoi,
+        photo: photoUrl,
+      }).eq('id', formPoi.id).select().single();
+      if (!updateError && updated) {
+        setPois(ps => ps.map(p => p.id === updated.id ? updated : p));
+        setFormPoi(updated);
+        setPoiActif(updated);
+        resetUploadPhoto();
+      } else if (updateError) {
+        setErreur(updateError.message || 'Erreur lors de la sauvegarde');
+      }
+      setSauvegarde(false);
+    }
+
+    // Supprime le POI
+    async function supprimerPoi() {
+      if (!formPoi) return;
+      const { error } = await supabase.from('pois').delete().eq('id', formPoi.id);
+      if (!error) {
+        setPois(ps => ps.filter(p => p.id !== formPoi.id));
+        setFormPoi(null);
+        setPoiActif(null);
+        resetUploadPhoto();
+      } else {
+        setErreur(error.message || 'Erreur lors de la suppression');
+      }
+    }
   // TOUS LES HOOKS D'ABORD !
   // Suppression de la rotation et de la boussole
   const mapDivRef = useRef();
@@ -411,6 +469,11 @@ export default function OngletPlan({ egliseId }) {
     return positionVue;
   }
 
+    // Ouvre le formulaire d'édition lors du clic sur un POI
+    function surClicPoi(poi) {
+      setPoiActif(poi);
+      setFormPoi(poi);
+    }
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - 108px)', gap: 0, borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.bordure}`, minHeight: 400 }}>
 
@@ -608,7 +671,9 @@ export default function OngletPlan({ egliseId }) {
                 L'image sera uploadée au clic sur Enregistrer.
               </p>
               {(photoPreview || formPoi.photo) && (
-                <img src={photoPreview || formPoi.photo} alt="" style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 6, marginTop: 6 }} />
+                <div style={{ width: '100%', aspectRatio: '9/16', background: '#eee', borderRadius: 6, marginTop: 6, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <img src={photoPreview || formPoi.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
               )}
             </ChampForm>
 
