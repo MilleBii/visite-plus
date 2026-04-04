@@ -17,6 +17,31 @@ class FichePoiScreen extends StatefulWidget {
 }
 
 class _FichePoiScreenState extends State<FichePoiScreen> {
+    void _showFullImage(String imageUrl) {
+      showDialog(
+        context: context,
+        builder: (_) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: EdgeInsets.zero,
+          child: GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: InteractiveViewer(
+              child: Container(
+                color: Colors.black,
+                child: Center(
+                  child: CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.contain,
+                    errorWidget: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.white, size: 80),
+                    placeholder: (_, __) => const Center(child: CircularProgressIndicator()),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
   Poi? _poi;
   bool _loading = true;
 
@@ -75,11 +100,14 @@ class _FichePoiScreenState extends State<FichePoiScreen> {
             ),
             flexibleSpace: FlexibleSpaceBar(
               background: poi.photo != null
-                  ? CachedNetworkImage(
-                      imageUrl: poi.photo!,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(color: const Color(0xFFE7E5E4)),
-                      errorWidget: (_, __, ___) => Container(color: const Color(0xFFE7E5E4)),
+                  ? GestureDetector(
+                      onTap: () => _showFullImage(poi.photo!),
+                      child: CachedNetworkImage(
+                        imageUrl: poi.photo!,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => Container(color: const Color(0xFFE7E5E4)),
+                        errorWidget: (_, __, ___) => Container(color: const Color(0xFFE7E5E4)),
+                      ),
                     )
                   : Container(
                       color: const Color(0xFFF5F5F4),
@@ -100,34 +128,7 @@ class _FichePoiScreenState extends State<FichePoiScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Type badge + titre
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: cfg.color.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(cfg.emoji, style: const TextStyle(fontSize: 13)),
-                            const SizedBox(width: 4),
-                            Text(
-                              cfg.label,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: cfg.color,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                  // Ligne titre + icône + audio
 
                     const SizedBox(height: 16),
                     // Nouvelle ligne : icône | titre | bouton play
