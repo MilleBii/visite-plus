@@ -690,23 +690,22 @@ function RechercheNominatim({ eglise, setOsmPropose }) {
         <div style={{ marginTop: 8 }}>
           <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Résultats Nominatim ({results.length})</div>
           <ul style={{ paddingLeft: 18 }}>
-            {results.map((r, i) => (
-              <li key={r.place_id} style={{ marginBottom: 8 }}>
-                <span style={{ fontWeight: 500 }}>{r.display_name.split(',')[0]}</span><br />
-                <span style={{ color: '#374151', fontSize: 13 }}>{r.display_name}</span><br />
-                <span style={{ color: '#78716C', fontSize: 12 }}>
-                  Nœuds geojson : {r.geojson && r.geojson.type === 'Polygon' && r.geojson.coordinates[0] ? r.geojson.coordinates[0].length :
-                    r.geojson && r.geojson.type === 'MultiPolygon' && r.geojson.coordinates[0] && r.geojson.coordinates[0][0] ? r.geojson.coordinates[0][0].length :
-                    'N/A'}
-                </span>
-                {r.geojson && (r.geojson.type === 'Polygon' || r.geojson.type === 'MultiPolygon') && (
-                  <>
-                    <button onClick={() => handleSelectGeojson(r.geojson)} style={{ marginLeft: 8, padding: '2px 10px', borderRadius: 6, border: '1px solid #1B4332', background: '#fff', color: '#1B4332', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Utiliser</button>
-                    <button onClick={() => handleZoomGeojson(r.geojson)} style={{ marginLeft: 8, padding: '2px 10px', borderRadius: 6, border: '1px solid #1B4332', background: '#F0FDF4', color: '#1B4332', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Zoomer</button>
-                  </>
-                )}
-              </li>
-            ))}
+              {results.map((r, i) => (
+                <li key={r.place_id} style={{ marginBottom: 8 }}>
+                  <span style={{ fontWeight: 500 }}>{r.display_name.split(',')[0]}</span><br />
+                  <span style={{ color: '#374151', fontSize: 13 }}>{r.display_name}</span><br />
+                  <span style={{ color: '#78716C', fontSize: 12 }}>
+                    Nœuds geojson : {r.geojson && r.geojson.type === 'Polygon' && r.geojson.coordinates[0] ? r.geojson.coordinates[0].length :
+                      r.geojson && r.geojson.type === 'MultiPolygon' && r.geojson.coordinates[0] && r.geojson.coordinates[0][0] ? r.geojson.coordinates[0][0].length :
+                      'N/A'}
+                  </span>
+                  {r.geojson && (r.geojson.type === 'Polygon' || r.geojson.type === 'MultiPolygon') && (
+                    <>
+                      <button onClick={() => handleSelectGeojson(r.geojson)} style={{ marginLeft: 8, padding: '2px 10px', borderRadius: 6, border: '1px solid #1B4332', background: '#fff', color: '#1B4332', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Utiliser</button>
+                    </>
+                  )}
+                </li>
+              ))}
           </ul>
         </div>
       )}
@@ -714,21 +713,4 @@ function RechercheNominatim({ eglise, setOsmPropose }) {
   );
 }
 
-// Fonction utilitaire pour zoomer sur le polygone OSM affiché
-function zoomerSurOsmPropose(osmPropose) {
-  if (!osmPropose || !osmPropose.length) return;
-  // Récupère tous les points du polygone
-  const allPoints = osmPropose.flat();
-  const lats = allPoints.map(([lat, lon]) => lat);
-  const lons = allPoints.map(([lat, lon]) => lon);
-  const bounds = [
-    [Math.min(...lats), Math.min(...lons)],
-    [Math.max(...lats), Math.max(...lons)],
-  ];
-  setTimeout(() => {
-    const mapEl = document.querySelector('.leaflet-container');
-    if (mapEl && mapEl._leaflet_map && bounds) {
-      mapEl._leaflet_map.fitBounds(bounds);
-    }
-  }, 200);
-}
+
