@@ -3,7 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import '../models/eglise.dart';
 import '../services/supabase_service.dart';
-import '../widgets/banniere_download.dart';
+// import '../widgets/banniere_download.dart';
 
 // Ajout pour la recherche
 import 'dart:async';
@@ -22,12 +22,7 @@ class _AccueilScreenState extends State<AccueilScreen> {
   bool _loading = true;
   String? _error;
 
-  // Pour la recherche
-  List<Eglise> _allEglises = [];
-  List<Eglise> _filteredEglises = [];
-  String _search = '';
-  bool _searchMode = false;
-  Timer? _debounce;
+  // ...existing code...
 
   @override
   void initState() {
@@ -35,13 +30,7 @@ class _AccueilScreenState extends State<AccueilScreen> {
     _loadEglise();
   }
 
-  Future<void> _loadAllEglises() async {
-    final eglises = await SupabaseService.fetchEglises();
-    setState(() {
-      _allEglises = eglises;
-      _filteredEglises = eglises;
-    });
-  }
+  // ...fonction _loadAllEglises supprimée car plus utilisée...
 
   Future<void> _loadEglise() async {
     try {
@@ -71,57 +60,7 @@ class _AccueilScreenState extends State<AccueilScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_searchMode) {
-      if (_allEglises.isEmpty) {
-        _loadAllEglises();
-      }
-      return Scaffold(
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.black),
-            onPressed: () => setState(() => _searchMode = false),
-          ),
-          title: TextField(
-            autofocus: true,
-            decoration: const InputDecoration(
-              hintText: 'Rechercher une église...',
-              border: InputBorder.none,
-            ),
-            onChanged: (value) {
-              setState(() => _search = value);
-              if (_debounce?.isActive ?? false) _debounce!.cancel();
-              _debounce = Timer(const Duration(milliseconds: 200), () {
-                setState(() {
-                      _filteredEglises = _allEglises
-                        .where((e) => e.nom.toLowerCase().contains(_search.toLowerCase()))
-                        .toList();
-                });
-              });
-            },
-          ),
-        ),
-        body: ListView.separated(
-          itemCount: _filteredEglises.length,
-          separatorBuilder: (_, __) => const Divider(height: 1),
-          itemBuilder: (context, i) {
-            final e = _filteredEglises[i];
-            return ListTile(
-              leading: Icon(e.typeIcon, color: Colors.black54),
-              title: Text(e.nom),
-              subtitle: Text(e.ville),
-              onTap: () {
-                setState(() {
-                  _searchMode = false;
-                  _eglise = e;
-                });
-              },
-            );
-          },
-        ),
-      );
-    }
+    // ...existing code...
 
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -200,30 +139,7 @@ class _AccueilScreenState extends State<AccueilScreen> {
             ),
           ),
 
-          // Bouton recherche
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 12,
-            right: 16,
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _searchMode = true;
-                  _search = '';
-                  _filteredEglises = _allEglises;
-                });
-                _loadAllEglises();
-              },
-              child: Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.35),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.search, color: Colors.white, size: 18),
-              ),
-            ),
-          ),
+          // ...existing code...
 
           // Contenu bas d'écran
           Positioned(
@@ -238,8 +154,7 @@ class _AccueilScreenState extends State<AccueilScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Bannière téléchargement (Flutter Web uniquement)
-                    const BanniereDownload(),
+                    // ...existing code...
 
                     Text(
                       eglise.ville.toUpperCase(),

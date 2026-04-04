@@ -1,3 +1,5 @@
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -17,6 +19,29 @@ class FichePoiScreen extends StatefulWidget {
 }
 
 class _FichePoiScreenState extends State<FichePoiScreen> {
+      @override
+      void initState() {
+        super.initState();
+        _loadPoi();
+      }
+
+      Future<void> _loadPoi() async {
+        setState(() => _loading = true);
+        try {
+          final poi = await SupabaseService.fetchPoiById(widget.poiId);
+          if (!mounted) return;
+          setState(() {
+            _poi = poi;
+            _loading = false;
+          });
+        } catch (e) {
+          if (!mounted) return;
+          setState(() {
+            _poi = null;
+            _loading = false;
+          });
+        }
+      }
     void _showFullImage(String imageUrl) {
       showDialog(
         context: context,
@@ -266,13 +291,23 @@ class _TextSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        Text(
-          texte,
-          style: const TextStyle(
-            fontSize: 15,
-            color: Color(0xFF1C1917),
-            height: 1.65,
+        MarkdownBody(
+          data: texte,
+          styleSheet: MarkdownStyleSheet(
+            p: const TextStyle(
+              fontSize: 15,
+              color: Color(0xFF1C1917),
+              height: 1.65,
+            ),
           ),
+          onTapLink: (text, href, title) async {
+            if (href != null) {
+              final uri = Uri.tryParse(href);
+              if (uri != null) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            }
+          },
         ),
       ],
     );
@@ -314,14 +349,24 @@ class _BibleSection extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  texte,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF78350F),
-                    fontStyle: FontStyle.italic,
-                    height: 1.6,
+                MarkdownBody(
+                  data: texte,
+                  styleSheet: MarkdownStyleSheet(
+                    p: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF78350F),
+                      fontStyle: FontStyle.italic,
+                      height: 1.6,
+                    ),
                   ),
+                  onTapLink: (text, href, title) async {
+                    if (href != null) {
+                      final uri = Uri.tryParse(href);
+                      if (uri != null) {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      }
+                    }
+                  },
                 ),
               ],
             ),

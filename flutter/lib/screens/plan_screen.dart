@@ -7,6 +7,7 @@ import '../models/eglise.dart';
 import '../models/poi.dart';
 import '../services/supabase_service.dart';
 import '../config/type_config.dart';
+import 'fiche_poi_screen.dart';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Positions GPS des POIs — démo Saint-Victor (mêmes que la maquette React).
@@ -359,7 +360,17 @@ class _PlanScreenState extends State<PlanScreen> {
                 child: _PanneauPoiBas(
                   poi: _poiSelectionne!,
                   onFermer: () => setState(() => _poiSelectionne = null),
-                  onOuvrir: () {},
+                  onOuvrir: () {
+                    final poi = _poiSelectionne!;
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => FichePoiScreen(
+                          slug: _eglise?.slug ?? '',
+                          poiId: poi.id,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
           ],
