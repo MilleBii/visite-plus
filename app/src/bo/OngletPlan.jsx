@@ -166,6 +166,10 @@ export default function OngletPlan({ egliseId }) {
     ]).then(([egliseRes, poisRes]) => {
       if (egliseRes.error) { setErreur(egliseRes.error.message); setChargement(false); return; }
       setEglise(egliseRes.data);
+      // Correction : angle de rotation depuis la base
+      const angleDb = egliseRes.data?.osm_rotation_angle ?? 0;
+      setAngle(angleDb);
+      setAngleSauvegarde(angleDb);
       if (poisRes.error) { setErreur(poisRes.error.message); setChargement(false); return; }
       setPois(poisRes.data || []);
       setChargement(false);
