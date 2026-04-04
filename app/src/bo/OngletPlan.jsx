@@ -414,7 +414,38 @@ export default function OngletPlan({ egliseId }) {
         {/* Plan Leaflet */}
         <div style={{ flex: 1, position: 'relative', minHeight: 0, height: '100%' }}>
           {/* Rose des vents interactive en haut à droite */}
-          <RoseDesVents modeRotation={modeRotation} onClick={() => setModeRotation(m => !m)} />
+          {/* Rose des vents seule en haut à droite */}
+          <div style={{
+            position: 'absolute',
+            top: 16,
+            right: 16,
+            zIndex: 1300,
+            pointerEvents: 'auto',
+          }}>
+            <RoseDesVents modeRotation={modeRotation} onClick={() => setModeRotation(m => !m)} />
+          </div>
+
+          {/* Angle en bas à droite */}
+          <div style={{
+            position: 'absolute',
+            bottom: 16,
+            right: 16,
+            zIndex: 1300,
+            minWidth: 44,
+            background: 'rgba(255,255,255,0.98)',
+            border: '1.5px solid #E7E5E4',
+            borderRadius: 8,
+            padding: '8px 10px',
+            fontSize: 16,
+            fontWeight: 600,
+            color: '#B7881C',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+            textAlign: 'center',
+            userSelect: 'none',
+            pointerEvents: 'auto',
+          }} title="Angle de rotation du plan">
+            {Math.round((angle % 360 + 360) % 360)}°
+          </div>
           <div style={{ height: '100%', minHeight: 0 }}>
             <MapContainer
               key={0}
