@@ -4,6 +4,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { supabase } from '../supabaseClient'
 import { typeConfig } from '../data/mockData'
+import React from 'react'
 
 const C = {
   primaire: '#1B4332',
@@ -219,6 +220,7 @@ export default function OngletPlan({ egliseId }) {
       <div style={{ padding: 32, textAlign: 'center' }}>
         <p style={{ color: C.texteSecondaire, fontSize: 16 }}>Aucun plan OSM disponible pour cette église.</p>
         {osmErreur && <div style={{ color: C.danger, marginBottom: 12 }}>{osmErreur}</div>}
+        <RechercheNominatim eglise={eglise} setOsmPropose={setOsmPropose} />
         {osmPropose && (
           <>
             <p style={{ color: C.primaire, fontWeight: 500 }}>Polygone trouvé sur OpenStreetMap&nbsp;:</p>
@@ -229,12 +231,46 @@ export default function OngletPlan({ egliseId }) {
                 ))}
               </svg>
             </div>
+            {/* Carte interactive temporaire pour zoom molette */}
+            <div style={{ width: 400, height: 300, margin: '0 auto 16px auto', border: '1px solid #E5E7EB', borderRadius: 8, overflow: 'hidden' }}>
+              <MapContainer
+                style={{ width: '100%', height: '100%' }}
+                bounds={(() => {
+                  // Filtrer les points invalides
+                  const allPoints = osmPropose.flat().filter(([lat, lon]) =>
+                    typeof lat === 'number' && typeof lon === 'number' && !isNaN(lat) && !isNaN(lon)
+                  );
+                  if (!allPoints.length) return [[0, 0], [0, 0]];
+                  const lats = allPoints.map(([lat, lon]) => lat);
+                  const lons = allPoints.map(([lat, lon]) => lon);
+                  return [
+                    [Math.min(...lats), Math.min(...lons)],
+                    [Math.max(...lats), Math.max(...lons)]
+                  ];
+                })()}
+                scrollWheelZoom={true}
+                zoomControl={true}
+                attributionControl={false}
+                crs={L.CRS.Simple}
+              >
+                <Pane name="planPreviewPane" style={{ zIndex: 300 }}>
+                  {osmPropose.map((ring, i) => (
+                    <Polygon
+                      key={i}
+                      positions={ring}
+                      pathOptions={{ color: '#B7881C', weight: 2, fillColor: '#FEF3C7', fillOpacity: 0.6, interactive: false }}
+                    />
+                  ))}
+                </Pane>
+              </MapContainer>
+            </div>
             <button onClick={async () => {
               setOsmValide(true)
               await supabase.from('eglises').update({ osm_footprint_json: JSON.stringify(osmPropose) }).eq('id', egliseId)
               window.location.reload()
             }} style={{ background: C.primaire, color: '#fff', border: 'none', borderRadius: 6, padding: '10px 22px', fontSize: 15, fontWeight: 600, cursor: 'pointer', marginRight: 12 }}>Valider et enregistrer</button>
             <button onClick={() => setOsmPropose(null)} style={{ background: '#fff', color: C.danger, border: `1px solid ${C.danger}`, borderRadius: 6, padding: '10px 22px', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
+            <button onClick={() => zoomerSurOsmPropose(osmPropose)} style={{ background: '#F0FDF4', color: C.primaire, border: `1px solid ${C.primaire}`, borderRadius: 6, padding: '10px 22px', fontSize: 15, fontWeight: 600, cursor: 'pointer', marginLeft: 12 }}>Zoomer sur le plan</button>
           </>
         )}
         {!osmPropose && (
@@ -242,7 +278,7 @@ export default function OngletPlan({ egliseId }) {
             onClick={async () => {
               setOsmRecherche(true); setOsmErreur(null)
               try {
-                // Recherche OSM via Overpass
+                // Recherche OSM via Nominatim
                 const nom = eglise?.nom || ''
                 const ville = eglise?.ville || ''
                 const query = `[out:json][timeout:25];area["name"="${ville}"][admin_level=8];(way["building"]["name"~"${nom}"](area);relation["building"]["name"~"${nom}"](area););out geom;`;
@@ -617,4 +653,170 @@ const styleTextarea = {
   border: `1px solid ${C.bordure}`, fontSize: 13,
   outline: 'none', resize: 'vertical', boxSizing: 'border-box',
   fontFamily: 'inherit', color: '#111827',
+}
+
+// ─── Recherche Nominatim (OpenStreetMap) ─────────────────────────────────────
+function RechercheNominatim({ eglise, setOsmPropose }) {
+  const [query, setQuery] = React.useState(eglise?.nom ? `${eglise.nom} ${eglise.ville || ''}` : '');
+  const [results, setResults] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
+  const mapRef = React.useRef();
+
+  // Récupère la référence de la carte Leaflet si possible
+  React.useEffect(() => {
+    // Cherche la carte dans la page (hack, car la ref n'est pas passée ici)
+    const leafletMap = document.querySelector('.leaflet-container')?.__leaflet;
+    if (leafletMap) mapRef.current = leafletMap;
+  }, []);
+
+  async function fetchNominatim(q) {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&polygon_geojson=1&q=${encodeURIComponent(q)}`;
+    const response = await fetch(url, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'visiteplus/1.0 (contact@visiteplus.fr)'
+      }
+    });
+    if (!response.ok) throw new Error('Erreur API Nominatim');
+    return response.json();
+  }
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setResults([]);
+    try {
+      const data = await fetchNominatim(query);
+      setResults(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  function handleSelectGeojson(geojson) {
+    let rings = [];
+    let bounds = null;
+    if (geojson?.type === 'Polygon') {
+      rings = [geojson.coordinates[0].map(([lon, lat]) => [lat, lon])];
+      bounds = geojson.coordinates[0].reduce((acc, [lon, lat]) => {
+        if (!acc) return [[lat, lon], [lat, lon]];
+        return [
+          [Math.min(acc[0][0], lat), Math.min(acc[0][1], lon)],
+          [Math.max(acc[1][0], lat), Math.max(acc[1][1], lon)]
+        ];
+      }, null);
+    } else if (geojson?.type === 'MultiPolygon') {
+      rings = geojson.coordinates[0].map(ring => ring.map(([lon, lat]) => [lat, lon]));
+      const allPoints = geojson.coordinates[0][0];
+      bounds = allPoints.reduce((acc, [lon, lat]) => {
+        if (!acc) return [[lat, lon], [lat, lon]];
+        return [
+          [Math.min(acc[0][0], lat), Math.min(acc[0][1], lon)],
+          [Math.max(acc[1][0], lat), Math.max(acc[1][1], lon)]
+        ];
+      }, null);
+    }
+    if (rings.length > 0) setOsmPropose(rings);
+    // Autozoom sur le polygone sélectionné
+    setTimeout(() => {
+      const mapEl = document.querySelector('.leaflet-container');
+      if (mapEl && mapEl._leaflet_map) {
+        const map = mapEl._leaflet_map;
+        if (bounds) map.fitBounds(bounds);
+      }
+    }, 300);
+  }
+
+  function handleZoomGeojson(geojson) {
+    let bounds = null;
+    if (geojson?.type === 'Polygon') {
+      bounds = geojson.coordinates[0].reduce((acc, [lon, lat]) => {
+        if (!acc) return [[lat, lon], [lat, lon]];
+        return [
+          [Math.min(acc[0][0], lat), Math.min(acc[0][1], lon)],
+          [Math.max(acc[1][0], lat), Math.max(acc[1][1], lon)]
+        ];
+      }, null);
+    } else if (geojson?.type === 'MultiPolygon') {
+      const allPoints = geojson.coordinates[0][0];
+      bounds = allPoints.reduce((acc, [lon, lat]) => {
+        if (!acc) return [[lat, lon], [lat, lon]];
+        return [
+          [Math.min(acc[0][0], lat), Math.min(acc[0][1], lon)],
+          [Math.max(acc[1][0], lat), Math.max(acc[1][1], lon)]
+        ];
+      }, null);
+    }
+    setTimeout(() => {
+      const mapEl = document.querySelector('.leaflet-container');
+      if (mapEl && mapEl._leaflet_map && bounds) {
+        mapEl._leaflet_map.fitBounds(bounds);
+      }
+    }, 200);
+  }
+
+  return (
+    <div style={{ background: '#F8FAFC', border: '1px solid #E5E7EB', borderRadius: 8, padding: 12, marginBottom: 18 }}>
+      <form onSubmit={handleSearch} style={{ marginBottom: 10, display: 'flex', gap: 8 }}>
+        <input
+          type="text"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Rechercher un lieu (OpenStreetMap)"
+          style={{ flex: 1, padding: 6, borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 14 }}
+        />
+        <button type="submit" disabled={loading || !query.trim()} style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: '#1B4332', color: '#fff', fontWeight: 600, fontSize: 14, cursor: loading ? 'wait' : 'pointer' }}>
+          {loading ? "Recherche..." : "Nominatim"}
+        </button>
+      </form>
+      {error && <div style={{ color: '#DC2626', fontSize: 13 }}>{error}</div>}
+      {results.length > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Résultats Nominatim ({results.length})</div>
+          <ul style={{ paddingLeft: 18 }}>
+            {results.map((r, i) => (
+              <li key={r.place_id} style={{ marginBottom: 8 }}>
+                <span style={{ fontWeight: 500 }}>{r.display_name.split(',')[0]}</span><br />
+                <span style={{ color: '#374151', fontSize: 13 }}>{r.display_name}</span><br />
+                <span style={{ color: '#78716C', fontSize: 12 }}>
+                  Nœuds geojson : {r.geojson && r.geojson.type === 'Polygon' && r.geojson.coordinates[0] ? r.geojson.coordinates[0].length :
+                    r.geojson && r.geojson.type === 'MultiPolygon' && r.geojson.coordinates[0] && r.geojson.coordinates[0][0] ? r.geojson.coordinates[0][0].length :
+                    'N/A'}
+                </span>
+                {r.geojson && (r.geojson.type === 'Polygon' || r.geojson.type === 'MultiPolygon') && (
+                  <>
+                    <button onClick={() => handleSelectGeojson(r.geojson)} style={{ marginLeft: 8, padding: '2px 10px', borderRadius: 6, border: '1px solid #1B4332', background: '#fff', color: '#1B4332', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Utiliser</button>
+                    <button onClick={() => handleZoomGeojson(r.geojson)} style={{ marginLeft: 8, padding: '2px 10px', borderRadius: 6, border: '1px solid #1B4332', background: '#F0FDF4', color: '#1B4332', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Zoomer</button>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Fonction utilitaire pour zoomer sur le polygone OSM affiché
+function zoomerSurOsmPropose(osmPropose) {
+  if (!osmPropose || !osmPropose.length) return;
+  // Récupère tous les points du polygone
+  const allPoints = osmPropose.flat();
+  const lats = allPoints.map(([lat, lon]) => lat);
+  const lons = allPoints.map(([lat, lon]) => lon);
+  const bounds = [
+    [Math.min(...lats), Math.min(...lons)],
+    [Math.max(...lats), Math.max(...lons)],
+  ];
+  setTimeout(() => {
+    const mapEl = document.querySelector('.leaflet-container');
+    if (mapEl && mapEl._leaflet_map && bounds) {
+      mapEl._leaflet_map.fitBounds(bounds);
+    }
+  }, 200);
 }

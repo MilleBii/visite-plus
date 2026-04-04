@@ -215,7 +215,23 @@ export default function TableauDeBord({ onEditer, onAjouter }) {
 }
 
 function LigneEglise({ eglise, selectionnee, onSelectionner, onEditer }) {
-  const publie = eglise.statut === 'publié'
+  const publie = eglise.statut === 'publié';
+  const [enSuppression, setEnSuppression] = useState(false);
+
+  async function supprimerEglise(e) {
+    e.stopPropagation();
+    if (!window.confirm(`Supprimer définitivement « ${eglise.nom} » ? Cette action est irréversible.`)) return;
+    setEnSuppression(true);
+    const { error } = await supabase.from('eglises').delete().eq('id', eglise.id);
+    setEnSuppression(false);
+    if (error) {
+      alert('Erreur lors de la suppression : ' + error.message);
+    } else {
+      // Rafraîchir la page ou la liste
+      window.location.reload();
+    }
+  }
+
   return (
     <div
       onClick={onSelectionner}
@@ -251,11 +267,38 @@ function LigneEglise({ eglise, selectionnee, onSelectionner, onEditer }) {
             fontSize: 11, color: C.primaire, background: 'none',
             border: `1px solid ${C.primaire}`, borderRadius: 5,
             padding: '2px 8px', cursor: 'pointer', fontWeight: 500,
+            marginBottom: 4,
           }}
         >
           Modifier
         </button>
+        <button
+          onClick={supprimerEglise}
+          disabled={enSuppression}
+          title="Supprimer l'église"
+          style={{
+            fontSize: 16,
+            color: '#fff',
+            background: '#dc2626', // rouge vif
+            border: 'none',
+            borderRadius: '50%',
+            width: 28,
+            height: 28,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: enSuppression ? 'wait' : 'pointer',
+            fontWeight: 700,
+            boxShadow: '0 1px 4px rgba(0,0,0,0.10)',
+            opacity: enSuppression ? 0.6 : 1,
+            marginTop: 2,
+            marginBottom: 2,
+            transition: 'background 0.15s',
+          }}
+        >
+          {enSuppression ? '…' : '🗑️'}
+        </button>
       </div>
     </div>
-  )
+  );
 }

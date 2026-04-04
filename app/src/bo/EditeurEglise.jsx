@@ -499,6 +499,7 @@ function OngletInformations({ form, onChange, onRechercherPhoto, recherchePhoto 
             <Champ label="Type">
               <Select valeur={form.type} onChange={v => onChange('type', v)} options={[
                 { value: 'église', label: 'Église' },
+                { value: 'basilique', label: 'Basilique' },
                 { value: 'sanctuaire', label: 'Sanctuaire' },
                 { value: 'cathédrale', label: 'Cathédrale' },
               ]} />
