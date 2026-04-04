@@ -306,11 +306,16 @@ export default function OngletPlan({ egliseId }) {
                 type: 'Polygon',
                 coordinates: proposeNorm.map(ring => ring.map(([lat, lon]) => [lon, lat]))
               };
-              await supabase.from('eglises').update({
+              const { error } = await supabase.from('eglises').update({
                 osm_footprint_json: JSON.stringify(geojson),
                 osm_rotation_angle: angle ?? 0
               }).eq('id', egliseId)
-              window.location.reload()
+              if (!error) {
+                setEglise(e => ({ ...e, osm_footprint_json: JSON.stringify(geojson), osm_rotation_angle: angle ?? 0 }));
+                setOsmPropose(null);
+              } else {
+                setErreur(error.message || 'Erreur lors de la sauvegarde');
+              }
             }} style={{ background: C.primaire, color: '#fff', border: 'none', borderRadius: 6, padding: '14px 32px', fontSize: 17, fontWeight: 700, cursor: 'pointer' }}>Valider et enregistrer</button>
             <button onClick={() => setOsmPropose(null)} style={{ background: '#fff', color: C.danger, border: `2px solid ${C.danger}`, borderRadius: 6, padding: '14px 32px', fontSize: 17, fontWeight: 700, cursor: 'pointer' }}>Annuler</button>
           </div>
