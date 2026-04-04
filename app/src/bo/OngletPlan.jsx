@@ -1,3 +1,44 @@
+// ─── Rose des vents ────────────────────────────────────────────────────────
+function RoseDesVents({ modeRotation, onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        position: 'absolute',
+        top: 16,
+        right: 16,
+        zIndex: 1200,
+        background: modeRotation ? 'rgba(255,243,199,0.98)' : 'rgba(255,255,255,0.95)',
+        border: modeRotation ? '2px solid #B7881C' : '1px solid #E7E5E4',
+        borderRadius: 8,
+        width: 64,
+        height: 64,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+        cursor: 'pointer',
+        transition: 'background 0.2s, border 0.2s'
+      }}
+      title={modeRotation ? 'Mode rotation activé (molette = tourner)' : 'Activer le mode rotation'}
+    >
+      <svg width="44" height="44" viewBox="0 0 44 44">
+        <circle cx="22" cy="22" r="21" fill="#fff" stroke={modeRotation ? '#B7881C' : '#B7881C'} strokeWidth={modeRotation ? 3 : 2} />
+        <polygon points="22,6 25,22 22,18 19,22" fill="#B7881C" />
+        <polygon points="22,38 25,22 22,26 19,22" fill="#78716C" />
+        <polygon points="6,22 22,19 18,22 22,25" fill="#B7881C" />
+        <polygon points="38,22 22,19 26,22 22,25" fill="#78716C" />
+        <text x="22" y="13" textAnchor="middle" fontSize="10" fill="#B7881C" fontWeight="bold">N</text>
+        <text x="22" y="41" textAnchor="middle" fontSize="10" fill="#78716C">S</text>
+        <text x="35" y="25" textAnchor="middle" fontSize="10" fill="#78716C">E</text>
+        <text x="9" y="25" textAnchor="middle" fontSize="10" fill="#B7881C">O</text>
+        {modeRotation && (
+          <circle cx="22" cy="22" r="16" fill="none" stroke="#B7881C" strokeWidth="2" strokeDasharray="4 4" />
+        )}
+      </svg>
+    </div>
+  );
+}
 // ─── Normalisation des polygones (rétrocompatibilité + GeoJSON) ─────────────
 // Accepte :
 // - [ [lat, lon], ... ] (ancien)
@@ -171,6 +212,7 @@ export default function OngletPlan({ egliseId }) {
 
   // Ajout de l'état angle (toujours 0 par défaut)
   const [angle, setAngle] = useState(0)
+  const [modeRotation, setModeRotation] = useState(false)
 
   const [modePlacement, setModePlacement] = useState(null)
   const [poiActif, setPoiActif] = useState(null)
@@ -371,62 +413,63 @@ export default function OngletPlan({ egliseId }) {
 
         {/* Plan Leaflet */}
         <div style={{ flex: 1, position: 'relative', minHeight: 0, height: '100%' }}>
-
-
-
+          {/* Rose des vents interactive en haut à droite */}
+          <RoseDesVents modeRotation={modeRotation} onClick={() => setModeRotation(m => !m)} />
           <div style={{ height: '100%', minHeight: 0 }}>
-          <MapContainer
-            key={0}
-            crs={L.CRS.Simple}
-            bounds={bounds}
-            boundsOptions={{ padding: [40, 40] }}
-            maxZoom={10}
-            zoomSnap={0.25}
-            zoomDelta={0.25}
-            wheelPxPerZoomLevel={320}
-            wheelDebounceTime={120}
-            style={{ height: '100%', width: '100%', background: '#F0EDE8' }}
-            zoomControl={false}
-            attributionControl={false}
-            ref={mapRef}
-          >
-            <ZoomControl position="topleft" />
-            <GestionnaireClic modePlacement={modePlacement} onClic={surClicCarte} />
-            <GestionnaireCurseur modePlacement={modePlacement} modeRotation={false} />
-            <BoutonAutoFit bounds={bounds} />
-            <Pane name="planPane" style={{ zIndex: 300 }}>
-              <Polygon
-                positions={footprint}
-                pathOptions={{ color: '#B7881C', weight: 2, fillColor: '#FEF3C7', fillOpacity: 0.6, interactive: false }}
-              />
-            </Pane>
-
-            <Pane name="poiPane" style={{ zIndex: 650 }}>
-              {pois.map(poi => (
-                <Marker
-                  key={poi.id}
-                  pane="poiPane"
-                  position={positionVersVue(poi.position)}
-                  icon={creerIcone(poi.type, poiActif?.id === poi.id)}
-                  draggable={true}
-                  bubblingMouseEvents={false}
-                  autoPan={false}
-                  autoPanOnFocus={false}
-                  eventHandlers={{
-                    click: (e) => {
-                      e.originalEvent?.stopPropagation?.()
-                      surClicPoi(poi)
-                    },
-                    dragstart: () => mapRef.current?.dragging?.disable(),
-                    dragend(e) {
-                      mapRef.current?.dragging?.enable()
-                      surDeplacement(poi, [e.target.getLatLng().lat, e.target.getLatLng().lng])
-                    },
-                  }}
+            <MapContainer
+              key={0}
+              crs={L.CRS.Simple}
+              bounds={bounds}
+              boundsOptions={{ padding: [40, 40] }}
+              maxZoom={10}
+              zoomSnap={0.25}
+              zoomDelta={0.25}
+              wheelPxPerZoomLevel={320}
+              wheelDebounceTime={120}
+              style={{ height: '100%', width: '100%', background: '#F0EDE8' }}
+              zoomControl={false}
+              attributionControl={false}
+              ref={mapRef}
+            >
+              <ZoomControl position="topleft" />
+              <GestionnaireClic modePlacement={modePlacement} onClic={surClicCarte} />
+              <GestionnaireCurseur modePlacement={modePlacement} modeRotation={modeRotation} />
+              <BoutonAutoFit bounds={bounds} />
+              {/* Gestionnaire de rotation à la molette */}
+              <GestionnaireRotation modeRotation={modeRotation} onRotation={delta => setAngle(a => a + delta * 2)} />
+              <Pane name="planPane" style={{ zIndex: 300 }}>
+                <Polygon
+                  positions={footprint}
+                  pathOptions={{ color: '#B7881C', weight: 2, fillColor: '#FEF3C7', fillOpacity: 0.6, interactive: false }}
                 />
-              ))}
-            </Pane>
-          </MapContainer>
+              </Pane>
+
+              <Pane name="poiPane" style={{ zIndex: 650 }}>
+                {pois.map(poi => (
+                  <Marker
+                    key={poi.id}
+                    pane="poiPane"
+                    position={positionVersVue(poi.position)}
+                    icon={creerIcone(poi.type, poiActif?.id === poi.id)}
+                    draggable={true}
+                    bubblingMouseEvents={false}
+                    autoPan={false}
+                    autoPanOnFocus={false}
+                    eventHandlers={{
+                      click: (e) => {
+                        e.originalEvent?.stopPropagation?.()
+                        surClicPoi(poi)
+                      },
+                      dragstart: () => mapRef.current?.dragging?.disable(),
+                      dragend(e) {
+                        mapRef.current?.dragging?.enable()
+                        surDeplacement(poi, [e.target.getLatLng().lat, e.target.getLatLng().lng])
+                      },
+                    }}
+                  />
+                ))}
+              </Pane>
+            </MapContainer>
           </div>
 
         </div>
