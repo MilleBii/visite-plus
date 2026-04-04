@@ -215,93 +215,131 @@ export default function OngletPlan({ egliseId }) {
   if (erreur) return <Placeholder texte={`Erreur : ${erreur}`} erreur />
 
   const footprintGps = eglise?.osm_footprint_json ? JSON.parse(eglise.osm_footprint_json) : null
-  if (!footprintGps) {
+  if (!footprintGps && !osmPropose) {
     return (
       <div style={{ padding: 32, textAlign: 'center' }}>
         <p style={{ color: C.texteSecondaire, fontSize: 16 }}>Aucun plan OSM disponible pour cette église.</p>
         {osmErreur && <div style={{ color: C.danger, marginBottom: 12 }}>{osmErreur}</div>}
         <RechercheNominatim eglise={eglise} setOsmPropose={setOsmPropose} />
-        {osmPropose && (
-          <>
-            <p style={{ color: C.primaire, fontWeight: 500 }}>Polygone trouvé sur OpenStreetMap&nbsp;:</p>
-            <div style={{ display: 'flex', justifyContent: 'center', margin: '16px 0' }}>
-              <svg width="320" height="220" viewBox="0 0 320 220" style={{ border: '1px solid #ccc', background: '#f8fafc' }}>
-                {osmPropose.map((ring, i) => (
-                  <polygon key={i} points={ring.map(([lat, lon]) => `${160 + (lon - osmPropose[0][0][1]) * 10000},${110 - (lat - osmPropose[0][0][0]) * 10000}`).join(' ')} fill="#1B4332" fillOpacity="0.2" stroke="#1B4332" strokeWidth="2" />
-                ))}
-              </svg>
-            </div>
-            {/* Carte interactive temporaire pour zoom molette */}
-            <div style={{ width: 400, height: 300, margin: '0 auto 16px auto', border: '1px solid #E5E7EB', borderRadius: 8, overflow: 'hidden' }}>
-              <MapContainer
-                style={{ width: '100%', height: '100%' }}
-                bounds={(() => {
-                  // Filtrer les points invalides
-                  const allPoints = osmPropose.flat().filter(([lat, lon]) =>
-                    typeof lat === 'number' && typeof lon === 'number' && !isNaN(lat) && !isNaN(lon)
-                  );
-                  if (!allPoints.length) return [[0, 0], [0, 0]];
-                  const lats = allPoints.map(([lat, lon]) => lat);
-                  const lons = allPoints.map(([lat, lon]) => lon);
-                  return [
-                    [Math.min(...lats), Math.min(...lons)],
-                    [Math.max(...lats), Math.max(...lons)]
-                  ];
-                })()}
-                scrollWheelZoom={true}
-                zoomControl={true}
-                attributionControl={false}
-                crs={L.CRS.Simple}
-              >
-                <Pane name="planPreviewPane" style={{ zIndex: 300 }}>
-                  {osmPropose.map((ring, i) => (
-                    <Polygon
-                      key={i}
-                      positions={ring}
-                      pathOptions={{ color: '#B7881C', weight: 2, fillColor: '#FEF3C7', fillOpacity: 0.6, interactive: false }}
-                    />
-                  ))}
-                </Pane>
-              </MapContainer>
-            </div>
+        <button
+          onClick={async () => {
+            setOsmRecherche(true); setOsmErreur(null)
+            try {
+              // Recherche OSM via Nominatim
+              const nom = eglise?.nom || ''
+              const ville = eglise?.ville || ''
+              const query = `[out:json][timeout:25];area["name"="${ville}"][admin_level=8];(way["building"]["name"~"${nom}"](area);relation["building"]["name"~"${nom}"](area););out geom;`;
+              const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`
+              const res = await fetch(url)
+              const json = await res.json()
+              const poly = (json.elements.find(e => e.type === 'way' && e.geometry) || json.elements.find(e => e.type === 'relation' && e.members?.[0]?.geometry))
+              let rings = []
+              if (poly?.geometry) rings = [[...poly.geometry.map(pt => [pt.lat, pt.lon])]]
+              else if (poly?.members) rings = poly.members.filter(m => m.geometry).map(m => m.geometry.map(pt => [pt.lat, pt.lon]))
+              if (rings.length === 0) throw new Error('Aucun polygone trouvé sur OSM')
+              setOsmPropose(rings)
+            } catch (e) {
+              setOsmErreur('Aucun polygone trouvé sur OpenStreetMap pour cette église.')
+            }
+            setOsmRecherche(false)
+          }}
+          disabled={osmRecherche}
+          style={{ background: C.primaire, color: '#fff', border: 'none', borderRadius: 6, padding: '10px 22px', fontSize: 15, fontWeight: 600, cursor: osmRecherche ? 'wait' : 'pointer' }}
+        >
+          {osmRecherche ? 'Recherche en cours…' : 'Chercher le plan sur OpenStreetMap'}
+        </button>
+      </div>
+    )
+  }
+
+  // Affichage du polygone proposé AVANT validation (osmPropose)
+  if (osmPropose) {
+    // Logique de rotation et boussole pour la proposition OSM
+    const [anglePropose, setAnglePropose] = React.useState(0);
+    const [modeRotationPropose, setModeRotationPropose] = React.useState(false);
+    // Rotation utilitaire
+    function rotateRing(ring, angleDeg) {
+      // Centre du polygone
+      const latC = ring.reduce((s, p) => s + p[0], 0) / ring.length;
+      const lonC = ring.reduce((s, p) => s + p[1], 0) / ring.length;
+      const a = angleDeg * Math.PI / 180;
+      return ring.map(([lat, lon]) => {
+        const x = (lon - lonC) * 111320 * Math.cos(latC * Math.PI / 180);
+        const y = (lat - latC) * 111320;
+        const xr = x * Math.sin(a) + y * Math.cos(a);
+        const yr = x * Math.cos(a) - y * Math.sin(a);
+        const latNew = latC + yr / 111320;
+        const lonNew = lonC + xr / (111320 * Math.cos(latC * Math.PI / 180));
+        return [latNew, lonNew];
+      });
+    }
+    // Appliquer la rotation à tous les rings
+    const rotatedRings = osmPropose.map(ring => rotateRing(ring, anglePropose));
+    // Calculer les bounds du polygone proposé (après rotation)
+    const allPoints = rotatedRings.flat().filter(([lat, lon]) =>
+      typeof lat === 'number' && typeof lon === 'number' && !isNaN(lat) && !isNaN(lon)
+    );
+    const lats = allPoints.map(([lat, lon]) => lat);
+    const lons = allPoints.map(([lat, lon]) => lon);
+    const bounds = [
+      [Math.min(...lats), Math.min(...lons)],
+      [Math.max(...lats), Math.max(...lons)]
+    ];
+    // Gestion molette pour rotation
+    const mapDivRef = React.useRef();
+    React.useEffect(() => {
+      if (!modeRotationPropose) return;
+      const handler = e => {
+        e.preventDefault();
+        setAnglePropose(a => a + (e.deltaY > 0 ? 1 : -1));
+      };
+      const el = mapDivRef.current;
+      if (el) el.addEventListener('wheel', handler, { passive: false });
+      return () => { if (el) el.removeEventListener('wheel', handler); };
+    }, [modeRotationPropose]);
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 108px)', minHeight: 400, borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.bordure}` }}>
+        <div style={{ flex: 1, minHeight: 0, position: 'relative' }} ref={mapDivRef}>
+          {/* Rose des vents et rotation */}
+          <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+            <RoseDesVents
+              angle={anglePropose}
+              actif={modeRotationPropose}
+              onClick={() => setModeRotationPropose(m => !m)}
+            />
+            <span style={{ fontSize: 10, color: modeRotationPropose ? C.primaire : C.texteSecondaire, fontWeight: modeRotationPropose ? 600 : 400, background: C.blanc, padding: '2px 6px', borderRadius: 4, border: `1px solid ${C.bordure}` }}>
+              {modeRotationPropose ? '↕ molette = rotation' : `${((anglePropose % 360) + 360) % 360}°`}
+            </span>
+          </div>
+          <MapContainer
+            style={{ height: '100%', width: '100%', background: '#F0EDE8' }}
+            bounds={bounds}
+            scrollWheelZoom={true}
+            zoomControl={true}
+            attributionControl={false}
+            crs={L.CRS.Simple}
+          >
+            <Pane name="planPreviewPane" style={{ zIndex: 300 }}>
+              {rotatedRings.map((ring, i) => (
+                <Polygon
+                  key={i}
+                  positions={ring}
+                  pathOptions={{ color: '#B7881C', weight: 2, fillColor: '#FEF3C7', fillOpacity: 0.6, interactive: false }}
+                />
+              ))}
+            </Pane>
+          </MapContainer>
+          {/* Boutons overlay */}
+          <div style={{ position: 'absolute', bottom: 24, left: 0, width: '100%', display: 'flex', justifyContent: 'center', gap: 16, zIndex: 1000 }}>
             <button onClick={async () => {
               setOsmValide(true)
-              await supabase.from('eglises').update({ osm_footprint_json: JSON.stringify(osmPropose) }).eq('id', egliseId)
+              // On sauvegarde l'angle avec le polygone
+              await supabase.from('eglises').update({ osm_footprint_json: JSON.stringify(rotatedRings), osm_rotation_angle: anglePropose }).eq('id', egliseId)
               window.location.reload()
-            }} style={{ background: C.primaire, color: '#fff', border: 'none', borderRadius: 6, padding: '10px 22px', fontSize: 15, fontWeight: 600, cursor: 'pointer', marginRight: 12 }}>Valider et enregistrer</button>
-            <button onClick={() => setOsmPropose(null)} style={{ background: '#fff', color: C.danger, border: `1px solid ${C.danger}`, borderRadius: 6, padding: '10px 22px', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
-            <button onClick={() => zoomerSurOsmPropose(osmPropose)} style={{ background: '#F0FDF4', color: C.primaire, border: `1px solid ${C.primaire}`, borderRadius: 6, padding: '10px 22px', fontSize: 15, fontWeight: 600, cursor: 'pointer', marginLeft: 12 }}>Zoomer sur le plan</button>
-          </>
-        )}
-        {!osmPropose && (
-          <button
-            onClick={async () => {
-              setOsmRecherche(true); setOsmErreur(null)
-              try {
-                // Recherche OSM via Nominatim
-                const nom = eglise?.nom || ''
-                const ville = eglise?.ville || ''
-                const query = `[out:json][timeout:25];area["name"="${ville}"][admin_level=8];(way["building"]["name"~"${nom}"](area);relation["building"]["name"~"${nom}"](area););out geom;`;
-                const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`
-                const res = await fetch(url)
-                const json = await res.json()
-                const poly = (json.elements.find(e => e.type === 'way' && e.geometry) || json.elements.find(e => e.type === 'relation' && e.members?.[0]?.geometry))
-                let rings = []
-                if (poly?.geometry) rings = [[...poly.geometry.map(pt => [pt.lat, pt.lon])]]
-                else if (poly?.members) rings = poly.members.filter(m => m.geometry).map(m => m.geometry.map(pt => [pt.lat, pt.lon]))
-                if (rings.length === 0) throw new Error('Aucun polygone trouvé sur OSM')
-                setOsmPropose(rings)
-              } catch (e) {
-                setOsmErreur('Aucun polygone trouvé sur OpenStreetMap pour cette église.')
-              }
-              setOsmRecherche(false)
-            }}
-            disabled={osmRecherche}
-            style={{ background: C.primaire, color: '#fff', border: 'none', borderRadius: 6, padding: '10px 22px', fontSize: 15, fontWeight: 600, cursor: osmRecherche ? 'wait' : 'pointer' }}
-          >
-            {osmRecherche ? 'Recherche en cours…' : 'Chercher le plan sur OpenStreetMap'}
-          </button>
-        )}
+            }} style={{ background: C.primaire, color: '#fff', border: 'none', borderRadius: 6, padding: '14px 32px', fontSize: 17, fontWeight: 700, cursor: 'pointer' }}>Valider et enregistrer</button>
+            <button onClick={() => setOsmPropose(null)} style={{ background: '#fff', color: C.danger, border: `2px solid ${C.danger}`, borderRadius: 6, padding: '14px 32px', fontSize: 17, fontWeight: 700, cursor: 'pointer' }}>Annuler</button>
+          </div>
+        </div>
       </div>
     )
   }
@@ -320,10 +358,10 @@ export default function OngletPlan({ egliseId }) {
   }
 
   return (
-    <div style={{ display: 'flex', height: 'calc(100vh - 108px)', gap: 0, borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.bordure}` }}>
+    <div style={{ display: 'flex', height: 'calc(100vh - 108px)', gap: 0, borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.bordure}`, minHeight: 400 }}>
 
       {/* Carte */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', height: '100%', minHeight: 0 }}>
 
         {/* Barre de types */}
         <div style={{ background: C.blanc, borderBottom: `1px solid ${C.bordure}`, padding: '10px 14px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -352,7 +390,7 @@ export default function OngletPlan({ egliseId }) {
         </div>
 
         {/* Plan Leaflet */}
-        <div style={{ flex: 1, position: 'relative' }}>
+        <div style={{ flex: 1, position: 'relative', minHeight: 0, height: '100%' }}>
 
           {/* Rose des vents */}
           <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
@@ -375,7 +413,7 @@ export default function OngletPlan({ egliseId }) {
             )}
           </div>
 
-          <div style={{ height: '100%' }}>
+          <div style={{ height: '100%', minHeight: 0 }}>
           <MapContainer
             key={0}
             crs={L.CRS.Simple}
