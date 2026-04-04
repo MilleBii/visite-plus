@@ -177,19 +177,6 @@ class _CarteScreenState extends State<CarteScreen> {
               ),
             ),
 
-          // Bulle de nom (premier tap)
-          if (_egliseBulle != null)
-            Positioned(
-              bottom: MediaQuery.of(context).padding.bottom + 24,
-              left: 16,
-              right: 16,
-              child: _EgliseBulle(
-                eglise: _egliseBulle!,
-                onTap: () => context.push('/eglise/${_egliseBulle!.safeSlug}'),
-                onClose: () => setState(() => _egliseBulle = null),
-              ),
-            ),
-
           // Titre app + barre de recherche
           Positioned(
             top: MediaQuery.of(context).padding.top + 12,
@@ -263,6 +250,19 @@ class _CarteScreenState extends State<CarteScreen> {
                     url: 'https://play.google.com/store/apps/details?id=fr.visite_plus.app',
                   ),
                 ],
+              ),
+            ),
+
+          // Bulle de nom (premier tap) — doit être après les boutons pour être au-dessus
+          if (_egliseBulle != null)
+            Positioned(
+              bottom: MediaQuery.of(context).padding.bottom + 24,
+              left: 16,
+              right: 16,
+              child: _EgliseBulle(
+                eglise: _egliseBulle!,
+                onTap: () => context.push('/eglise/${_egliseBulle!.safeSlug}'),
+                onClose: () => setState(() => _egliseBulle = null),
               ),
             ),
         ],
