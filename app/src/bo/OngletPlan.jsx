@@ -127,6 +127,7 @@ function GestionnaireRotation({ modeRotation, onRotation }) {
 // ─── Composant principal ──────────────────────────────────────────────────────
 
 
+
 export default function OngletPlan({ egliseId }) {
   // TOUS LES HOOKS D'ABORD !
   // Suppression de la rotation et de la boussole
@@ -137,7 +138,8 @@ export default function OngletPlan({ egliseId }) {
   const [chargement, setChargement] = useState(true)
   const [erreur, setErreur] = useState(null)
 
-
+  // Ajout de l'état angle (toujours 0 par défaut)
+  const [angle, setAngle] = useState(0)
 
   const [modePlacement, setModePlacement] = useState(null)
   const [poiActif, setPoiActif] = useState(null)
@@ -160,16 +162,18 @@ export default function OngletPlan({ egliseId }) {
     if (!egliseId) return;
     setChargement(true);
     setErreur(null);
+    console.log('[OngletPlan] Chargement des données pour église', egliseId);
     Promise.all([
       supabase.from('eglises').select('*').eq('id', egliseId).single(),
       supabase.from('pois').select('*').eq('eglise_id', egliseId)
     ]).then(([egliseRes, poisRes]) => {
+      console.log('[OngletPlan] Résultat église:', egliseRes);
       if (egliseRes.error) { setErreur(egliseRes.error.message); setChargement(false); return; }
       setEglise(egliseRes.data);
       // Correction : angle de rotation depuis la base
       const angleDb = egliseRes.data?.osm_rotation_angle ?? 0;
+      console.log('[OngletPlan] Angle lu depuis la base:', angleDb);
       setAngle(angleDb);
-      setAngleSauvegarde(angleDb);
       if (poisRes.error) { setErreur(poisRes.error.message); setChargement(false); return; }
       setPois(poisRes.data || []);
       setChargement(false);
@@ -215,6 +219,7 @@ export default function OngletPlan({ egliseId }) {
 
   const footprintGps = eglise?.osm_footprint_json ? JSON.parse(eglise.osm_footprint_json) : null
   if (!footprintGps && !osmPropose) {
+    console.log('[OngletPlan] Aucun polygone OSM disponible pour cette église. footprintGps:', footprintGps, 'osmPropose:', osmPropose);
     return (
       <div style={{ padding: 32, textAlign: 'center' }}>
         <p style={{ color: C.texteSecondaire, fontSize: 16 }}>Aucun plan OSM disponible pour cette église.</p>
@@ -236,6 +241,7 @@ export default function OngletPlan({ egliseId }) {
       [Math.min(...lats), Math.min(...lons)],
       [Math.max(...lats), Math.max(...lons)]
     ];
+    console.log('[OngletPlan] Affichage polygone proposé, bounds:', bounds, 'osmPropose:', osmPropose, 'angle:', angle);
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 108px)', minHeight: 400, borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.bordure}` }}>
         <div style={{ flex: 1, minHeight: 0, position: 'relative' }} ref={mapDivRef}>
@@ -261,7 +267,11 @@ export default function OngletPlan({ egliseId }) {
           <div style={{ position: 'absolute', bottom: 24, left: 0, width: '100%', display: 'flex', justifyContent: 'center', gap: 16, zIndex: 1000 }}>
             <button onClick={async () => {
               setOsmValide(true)
-              await supabase.from('eglises').update({ osm_footprint_json: JSON.stringify(osmPropose) }).eq('id', egliseId)
+              console.log('[OngletPlan] Sauvegarde du polygone OSM, angle:', angle, 'osmPropose:', osmPropose);
+              await supabase.from('eglises').update({
+                osm_footprint_json: JSON.stringify(osmPropose),
+                osm_rotation_angle: angle ?? 0
+              }).eq('id', egliseId)
               window.location.reload()
             }} style={{ background: C.primaire, color: '#fff', border: 'none', borderRadius: 6, padding: '14px 32px', fontSize: 17, fontWeight: 700, cursor: 'pointer' }}>Valider et enregistrer</button>
             <button onClick={() => setOsmPropose(null)} style={{ background: '#fff', color: C.danger, border: `2px solid ${C.danger}`, borderRadius: 6, padding: '14px 32px', fontSize: 17, fontWeight: 700, cursor: 'pointer' }}>Annuler</button>
@@ -272,17 +282,9 @@ export default function OngletPlan({ egliseId }) {
   }
 
 
-  // Pas de rotation, on affiche tel quel
-  const footprint = footprintGps;
-  const allPoints = footprint.flat().filter(([lat, lon]) =>
-    typeof lat === 'number' && typeof lon === 'number' && !isNaN(lat) && !isNaN(lon)
-  );
-  const lats = allPoints.map(([lat, lon]) => lat);
-  const lons = allPoints.map(([lat, lon]) => lon);
-  const bounds = [
-    [Math.min(...lats), Math.min(...lons)],
-    [Math.max(...lats), Math.max(...lons)]
-  ];
+  // Affichage du polygone sauvegardé avec gestion de l'angle
+  const { footprint, bounds } = footprintGps ? buildLocal(footprintGps, angle) : { footprint: [], bounds: [[0,0],[0,0]] };
+  console.log('[OngletPlan] Affichage polygone sauvegardé, bounds:', bounds, 'footprint:', footprint, 'angle:', angle);
 
   function positionVersVue(positionStockee) {
     return positionStockee;
