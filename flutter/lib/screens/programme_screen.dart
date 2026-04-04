@@ -217,18 +217,18 @@ class _EvenementCard extends StatelessWidget {
 class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return const Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.calendar_today_outlined, size: 48, color: Color(0xFFD6D3D1)),
-          const SizedBox(height: 12),
-          const Text(
+          Icon(Icons.calendar_today_outlined, size: 48, color: Color(0xFFD6D3D1)),
+          SizedBox(height: 12),
+          Text(
             'Aucun événement à venir',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF78716C)),
           ),
-          const SizedBox(height: 6),
-          const Text(
+          SizedBox(height: 6),
+          Text(
             'Revenez bientôt !',
             style: TextStyle(fontSize: 14, color: Color(0xFFA8A29E)),
           ),

@@ -208,7 +208,7 @@ class SupabaseService {
 
       if (response == null || response is! List) return [];
 
-      return (response as List)
+      return (response)
           .map((e) => Evenement.fromGoogleCalendar(e as Map<String, dynamic>))
           .toList();
     } catch (e) {

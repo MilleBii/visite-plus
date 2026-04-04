@@ -650,8 +650,8 @@ class _PanneauPoiBas extends StatelessWidget {
                     child: Container(
                       width: 28,
                       height: 28,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF5F5F4),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF5F5F4),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.close, size: 14, color: Color(0xFF78716C)),
