@@ -74,15 +74,38 @@ class _FichePoiScreenState extends State<FichePoiScreen> {
   final FlutterTts _tts = FlutterTts();
   _TtsState _ttsState = _TtsState.stopped;
 
+  String _stripMarkdown(String text) {
+    // Supprime les balises Markdown de base (liens, gras, italique, titres, etc.)
+    var t = text
+      .replaceAll(RegExp(r'\*\*([^*]+)\*\*'), r'$1') // **gras**
+      .replaceAll(RegExp(r'\*([^*]+)\*'), r'$1') // *italique*
+      .replaceAll(RegExp(r'_([^_]+)_'), r'$1') // _italique_
+      .replaceAll(RegExp(r'\[(.*?)\]\((.*?)\)'), r'$1') // [texte](lien)
+      .replaceAll(RegExp(r'`([^`]+)`'), r'$1') // `code`
+      .replaceAll(RegExp(r'^#+\s*', multiLine: true), '') // titres #
+      .replaceAll(RegExp(r'^>\s*', multiLine: true), '') // citations
+      .replaceAll(RegExp(r'^[-*+]\s+', multiLine: true), '') // listes
+      .replaceAll(RegExp(r'\!\[(.*?)\]\((.*?)\)'), '') // images
+      .replaceAll(RegExp(r'\n{2,}'), '\n'); // espaces multiples
+    return t;
+  }
+
   Future<void> _toggleTts() async {
     if (_poi == null) return;
+    final texteTts = _stripMarkdown(_poi!.texteTts);
     switch (_ttsState) {
       case _TtsState.stopped:
-        await _tts.speak(_poi!.texteTts);
+        setState(() => _ttsState = _TtsState.playing);
+        await _tts.speak(texteTts);
+        break;
       case _TtsState.playing:
         await _tts.pause();
+        setState(() => _ttsState = _TtsState.paused);
+        break;
       case _TtsState.paused:
-        await _tts.speak(_poi!.texteTts);
+        setState(() => _ttsState = _TtsState.playing);
+        await _tts.speak(texteTts);
+        break;
     }
   }
 
