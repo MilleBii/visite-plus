@@ -8,6 +8,8 @@ import '../services/supabase_service.dart';
 import '../config/type_config.dart';
 import 'package:flutter/foundation.dart';
 import './_store_button.dart';
+import '../main.dart';
+import '../l10n/app_localizations.dart';
 
 class CarteScreen extends StatefulWidget {
   const CarteScreen({super.key});
@@ -21,10 +23,9 @@ class _CarteScreenState extends State<CarteScreen> {
   List<Eglise> _eglises = [];
   bool _loading = true;
   String? _error;
-  Eglise? _egliseBulle; // premier tap → bulle de nom
+  Eglise? _egliseBulle;
   Position? _userPosition;
 
-  // Pour la recherche
   String _search = '';
   List<Eglise> _filteredEglises = [];
   bool _showSearchResults = false;
@@ -82,7 +83,6 @@ class _CarteScreenState extends State<CarteScreen> {
 
   void _onMarkerTap(Eglise eglise) {
     if (_egliseBulle?.id == eglise.id) {
-      // Deuxième tap → naviguer vers l'église
       context.push('/eglise/${eglise.safeSlug}');
     } else {
       setState(() => _egliseBulle = eglise);
@@ -106,18 +106,25 @@ class _CarteScreenState extends State<CarteScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations(LocaleScope.of(context).locale);
+
     return Scaffold(
       body: Stack(
         children: [
           if (_loading)
             const Center(child: CircularProgressIndicator())
           else if (_error != null)
-            Center(child: Text('Erreur : $_error', style: const TextStyle(color: Colors.red)))
+            Center(
+              child: Text(
+                '${l10n.error} : $_error',
+                style: const TextStyle(color: Colors.red),
+              ),
+            )
           else
             FlutterMap(
               mapController: _mapController,
               options: MapOptions(
-                initialCenter: const LatLng(46.603354, 1.888334), // France
+                initialCenter: const LatLng(46.603354, 1.888334),
                 initialZoom: 6,
                 onTap: (_, __) => setState(() => _egliseBulle = null),
               ),
@@ -219,8 +226,9 @@ class _CarteScreenState extends State<CarteScreen> {
                 Expanded(
                   child: TextField(
                     decoration: InputDecoration(
-                      contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
-                      hintText: 'Rechercher une église...',
+                      contentPadding:
+                          const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
+                      hintText: l10n.searchHint,
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
@@ -235,10 +243,10 @@ class _CarteScreenState extends State<CarteScreen> {
                         _search = value;
                         _showSearchResults = value.isNotEmpty;
                         _filteredEglises = _eglises
-                          .where((e) =>
-                            e.nom.toLowerCase().contains(_search.toLowerCase()) ||
-                            e.ville.toLowerCase().contains(_search.toLowerCase()))
-                          .toList();
+                            .where((e) =>
+                                e.nom.toLowerCase().contains(_search.toLowerCase()) ||
+                                e.ville.toLowerCase().contains(_search.toLowerCase()))
+                            .toList();
                       });
                     },
                   ),
@@ -246,20 +254,21 @@ class _CarteScreenState extends State<CarteScreen> {
               ],
             ),
           ),
+
           // Boutons App Store & Google Play (web uniquement)
           if (kIsWeb)
             Positioned(
               left: 0,
               right: 0,
               bottom: MediaQuery.of(context).padding.bottom + 16,
-              child: Row(
+              child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   StoreButton(
                     label: 'App Store',
                     url: 'https://apps.apple.com/app/visite-plus/id0000000000',
                   ),
-                  const SizedBox(width: 16),
+                  SizedBox(width: 16),
                   StoreButton(
                     label: 'Google Play',
                     url: 'https://play.google.com/store/apps/details?id=fr.visite_plus.app',
@@ -268,7 +277,7 @@ class _CarteScreenState extends State<CarteScreen> {
               ),
             ),
 
-          // Bulle de nom (premier tap) — doit être après les boutons pour être au-dessus
+          // Bulle de nom (premier tap)
           if (_egliseBulle != null)
             Positioned(
               bottom: MediaQuery.of(context).padding.bottom + 24,
@@ -327,6 +336,7 @@ class _EgliseBulle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations(LocaleScope.of(context).locale);
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -359,9 +369,13 @@ class _EgliseBulle extends StatelessWidget {
                 color: const Color(0xFF1B4332),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Text(
-                'Visiter',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+              child: Text(
+                l10n.visit,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
               ),
             ),
             const SizedBox(width: 8),

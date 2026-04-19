@@ -1,9 +1,10 @@
+import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'router.dart';
 
-// TODO: remplacer par les vraies valeurs Supabase
 const _supabaseUrl = 'https://lbksiotvnnpqkwslwjoq.supabase.co';
 const _supabaseAnonKey = 'sb_publishable_PHQ48k3UcTbs4ATRQWpwQw_B21GhzKO';
 
@@ -15,24 +16,71 @@ void main() async {
     anonKey: _supabaseAnonKey,
   );
 
-  await initializeDateFormatting('fr_FR');
+  await Future.wait([
+    initializeDateFormatting('fr_FR'),
+    initializeDateFormatting('en_US'),
+  ]);
 
   runApp(const VisitePlusApp());
 }
 
-class VisitePlusApp extends StatelessWidget {
+/// Inherited widget that holds the current locale and exposes a setter.
+class LocaleScope extends InheritedWidget {
+  final Locale locale;
+  final ValueChanged<Locale> onLocaleChanged;
+
+  const LocaleScope({
+    super.key,
+    required this.locale,
+    required this.onLocaleChanged,
+    required super.child,
+  });
+
+  static LocaleScope of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<LocaleScope>()!;
+
+  @override
+  bool updateShouldNotify(LocaleScope old) => locale != old.locale;
+}
+
+class VisitePlusApp extends StatefulWidget {
   const VisitePlusApp({super.key});
 
   @override
+  State<VisitePlusApp> createState() => _VisitePlusAppState();
+}
+
+class _VisitePlusAppState extends State<VisitePlusApp> {
+  late Locale _locale;
+
+  @override
+  void initState() {
+    super.initState();
+    // Default to platform locale, fall back to French
+    final platformLang = PlatformDispatcher.instance.locale.languageCode;
+    _locale = platformLang == 'en' ? const Locale('en') : const Locale('fr');
+  }
+
+  void _setLocale(Locale locale) => setState(() => _locale = locale);
+
+  @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: 'Visite+',
-      debugShowCheckedModeBanner: false,
-      theme: _buildTheme(),
-      routerConfig: appRouter,
-      localizationsDelegates: const [
-        // flutter_localizations ajoutés pour i18n futur
-      ],
+    return LocaleScope(
+      locale: _locale,
+      onLocaleChanged: _setLocale,
+      child: MaterialApp.router(
+        title: 'Visite+',
+        debugShowCheckedModeBanner: false,
+        theme: _buildTheme(),
+        routerConfig: appRouter,
+        locale: _locale,
+        supportedLocales: const [Locale('fr'), Locale('en')],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+      ),
     );
   }
 

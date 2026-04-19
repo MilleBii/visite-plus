@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/i18n_field.dart';
 
 class Eglise {
   final int id;
@@ -9,12 +10,13 @@ class Eglise {
   final double latitude;
   final double longitude;
   final String? photoFacade;
-  final String messageBienvenue;
-  final String? planImage; // URL image plan custom (Cloudinary)
+  final String? planImage;
   final String? googleCalendarIdMesses;
   final String? googleCalendarIdEvenements;
-  final String? osmFootprintJson; // JSON des coords GPS du polygone OSM
-  final double osmRotationAngle; // angle de rotation du plan OSM (°)
+  final String? osmFootprintJson;
+  final double osmRotationAngle;
+
+  final dynamic _messageBienvenue;
 
   const Eglise({
     required this.id,
@@ -25,13 +27,22 @@ class Eglise {
     required this.latitude,
     required this.longitude,
     this.photoFacade,
-    required this.messageBienvenue,
+    dynamic messageBienvenue,
     this.planImage,
     this.googleCalendarIdMesses,
     this.googleCalendarIdEvenements,
     this.osmFootprintJson,
     this.osmRotationAngle = 0,
-  });
+  }) : _messageBienvenue = messageBienvenue;
+
+  String getMessageBienvenue(Locale locale) {
+    if (_messageBienvenue == null) {
+      return locale.languageCode == 'en'
+          ? 'Believer or not, welcome to this church!'
+          : 'Croyant ou non, bienvenue dans cette église !';
+    }
+    return resolveI18n(_messageBienvenue, locale);
+  }
 
   /// Slug robuste pour la navigation (fallback si valeur vide en base/cache).
   String get safeSlug {
@@ -52,10 +63,14 @@ class Eglise {
         slug: (rawSlug == null || rawSlug.isEmpty)
             ? _toSlug(json['nom'] as String)
             : rawSlug,
-        latitude: position != null ? (position[0] as num).toDouble() : (json['latitude'] as num?)?.toDouble() ?? 0.0,
-        longitude: position != null ? (position[1] as num).toDouble() : (json['longitude'] as num?)?.toDouble() ?? 0.0,
+        latitude: position != null
+            ? (position[0] as num).toDouble()
+            : (json['latitude'] as num?)?.toDouble() ?? 0.0,
+        longitude: position != null
+            ? (position[1] as num).toDouble()
+            : (json['longitude'] as num?)?.toDouble() ?? 0.0,
         photoFacade: json['photo_facade'] as String?,
-        messageBienvenue: json['message_bienvenue'] as String? ?? 'Croyant ou non, bienvenue dans cette église !',
+        messageBienvenue: json['message_bienvenue'],
         planImage: json['plan_image'] as String?,
         googleCalendarIdMesses: json['google_calendar_id_messes'] as String?,
         googleCalendarIdEvenements: json['google_calendar_id_evenements'] as String?,

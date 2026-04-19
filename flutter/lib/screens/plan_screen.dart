@@ -7,6 +7,8 @@ import '../models/eglise.dart';
 import '../models/poi.dart';
 import '../services/supabase_service.dart';
 import '../config/type_config.dart';
+import '../main.dart';
+import '../l10n/app_localizations.dart';
 import 'fiche_poi_screen.dart';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -76,7 +78,6 @@ class _CanvasMapper {
     final maxX = xs.reduce(max);
     final minY = ys.reduce(min);
     final maxY = ys.reduce(max);
-    // Taille virtuelle canvas : 800 × 600 points
     const virtualW = 800.0;
     const virtualH = 600.0;
     final scaleX = (virtualW - padding * 2) / (maxX - minX).clamp(0.001, double.infinity);
@@ -114,7 +115,7 @@ class _PlanScreenState extends State<PlanScreen> {
   List<Poi> _pois = [];
   bool _loading = true;
   Poi? _poiSelectionne;
-  double _angle = 322; // angle par défaut Saint-Victor; remplacé par eglise.osmRotationAngle en prod
+  double _angle = 322;
   static const double _polygonAngleOffsetDeg = -90;
 
   double get _appliedAngle => ((_angle % 360) + 360) % 360;
@@ -125,7 +126,6 @@ class _PlanScreenState extends State<PlanScreen> {
   late _CanvasMapper _mapper;
   List<Offset> _footprintLocal = [];
   List<Offset> _footprintCanvas = [];
-
   Offset _footprintCenterLocal = Offset.zero;
 
   Offset _rotateAround(Offset point, Offset center, double angleDeg) {
@@ -183,12 +183,10 @@ class _PlanScreenState extends State<PlanScreen> {
 
     List coordsList;
     bool isGeoJson = false;
-    // Si GeoJSON (objet avec type/coordinates)
     if (decodedJson is Map && decodedJson.containsKey('coordinates')) {
       isGeoJson = true;
       final coords = decodedJson['coordinates'];
       if (coords is List && coords.isNotEmpty) {
-        // Polygon: [ [ [lon, lat], ... ] ]
         if (coords[0] is List && coords[0].isNotEmpty && coords[0][0] is List) {
           coordsList = coords[0];
         } else {
@@ -207,7 +205,7 @@ class _PlanScreenState extends State<PlanScreen> {
 
     final decoded = coordsList
         .map((p) => isGeoJson
-            ? [((p[1] as num).toDouble()), ((p[0] as num).toDouble())] // GeoJSON: [lon, lat] → [lat, lon]
+            ? [((p[1] as num).toDouble()), ((p[0] as num).toDouble())]
             : [((p[0] as num).toDouble()), ((p[1] as num).toDouble())])
         .toList();
     _coords = _CoordSystem.fromFootprint(decoded, _angle);
@@ -245,10 +243,7 @@ class _PlanScreenState extends State<PlanScreen> {
   }
 
   Offset _poiCanvasPosition(Poi poi) {
-    // Les POIs du BO sont stockés en coordonnées locales (CRS.Simple) et
-    // doivent être mappés directement sur le canvas du plan.
     if (poi.positionX.isFinite && poi.positionY.isFinite) {
-      // Repère local BO conservé: x, y sans permutation d'axes.
       final displayLocal = Offset(poi.positionX, poi.positionY);
       final alignedLocal = _rotateAround(displayLocal, _footprintCenterLocal, _polygonAngleOffsetDeg);
       final pos = _mapper.toCanvas(alignedLocal);
@@ -260,7 +255,6 @@ class _PlanScreenState extends State<PlanScreen> {
       return pos;
     }
 
-    // Fallback legacy: anciennes données démo GPS Saint-Victor.
     final idx = _pois.indexOf(poi);
     if (idx >= 0 && idx < _poisGps.length) {
       final gps = _poisGps[idx];
@@ -269,14 +263,17 @@ class _PlanScreenState extends State<PlanScreen> {
       return _mapper.toCanvas(alignedLocal);
     }
 
-    // Fallback : centroïde du plan
     return Offset(_mapper.canvasWidth / 2, _mapper.canvasHeight / 2);
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations(LocaleScope.of(context).locale);
+
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    if (_footprintCanvas.isEmpty) return const Scaffold(body: Center(child: Text('Polygone OSM manquant pour cette église.')));
+    if (_footprintCanvas.isEmpty) {
+      return Scaffold(body: Center(child: Text(l10n.osmMissing)));
+    }
 
     final safeBottom = MediaQuery.of(context).padding.bottom;
     final bottomPlanInset = safeBottom + 78;
@@ -288,7 +285,7 @@ class _PlanScreenState extends State<PlanScreen> {
           children: [
             // ── Plan interactif ──────────────────────────────────────────────
             Positioned.fill(
-              top: 70, // sous le header
+              top: 70,
               bottom: bottomPlanInset,
               child: _PlanView(
                 footprintCanvas: _footprintCanvas,
@@ -327,9 +324,13 @@ class _PlanScreenState extends State<PlanScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
-                          'Plan de l\'église',
-                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Color(0xFF1C1917)),
+                        Text(
+                          l10n.churchPlan,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1C1917),
+                          ),
                         ),
                         Text(
                           '${_eglise?.nom ?? ''} · OpenStreetMap',
@@ -379,6 +380,7 @@ class _PlanScreenState extends State<PlanScreen> {
     );
   }
 }
+
 class _PlanView extends StatelessWidget {
   final List<Offset> footprintCanvas;
   final double canvasWidth, canvasHeight;
@@ -404,7 +406,6 @@ class _PlanView extends StatelessWidget {
     final planStack = Stack(
       clipBehavior: Clip.none,
       children: [
-        // Fond plan (image custom OU polygone OSM)
         if (planImage != null)
           Positioned.fill(
             child: CachedNetworkImage(imageUrl: planImage!, fit: BoxFit.contain),
@@ -415,7 +416,6 @@ class _PlanView extends StatelessWidget {
             painter: _FootprintPainter(points: footprintCanvas),
           ),
 
-        // Marqueurs POI
         ...pois.map((poi) {
           final pos = getPoiPosition(poi);
           final cfg = getPoiConfig(poi.type);
@@ -450,12 +450,11 @@ class _PlanView extends StatelessWidget {
       ],
     );
 
-    // LayoutBuilder pour calculer l'échelle initiale qui remplit l'espace dispo
     return LayoutBuilder(
       builder: (context, constraints) {
         final scaleX = constraints.maxWidth / canvasWidth;
         final scaleY = constraints.maxHeight / canvasHeight;
-        final initialScale = min(scaleX, scaleY) * 0.92; // 92% pour un léger padding visuel
+        final initialScale = min(scaleX, scaleY) * 0.92;
 
         return InteractiveViewer(
           minScale: initialScale * 0.5,
@@ -491,7 +490,7 @@ class _FootprintPainter extends CustomPainter {
     if (points.isEmpty) return;
 
     final fillPaint = Paint()
-      ..color = const Color(0xFFFEF3C7).withOpacity(0.6)
+      ..color = const Color(0xFFFEF3C7).withValues(alpha: 0.6)
       ..style = PaintingStyle.fill;
 
     final strokePaint = Paint()
@@ -514,9 +513,6 @@ class _FootprintPainter extends CustomPainter {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Contrôle angle (démo — BO only en prod)
-// ──────────────────────────────────────────────────────────────────────────────
-// ──────────────────────────────────────────────────────────────────────────────
 // Légende
 // ──────────────────────────────────────────────────────────────────────────────
 class _Legende extends StatelessWidget {
@@ -524,6 +520,7 @@ class _Legende extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = LocaleScope.of(context).locale.languageCode;
     return Center(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -555,7 +552,7 @@ class _Legende extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          entry.value.label,
+                          entry.value.getLabel(lang),
                           style: const TextStyle(fontSize: 11, color: Color(0xFF44403C)),
                         ),
                       ],
@@ -584,7 +581,10 @@ class _PanneauPoiBas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scope = LocaleScope.of(context);
+    final l10n = AppLocalizations(scope.locale);
     final cfg = getPoiConfig(poi.type);
+
     return GestureDetector(
       onTap: onOuvrir,
       child: Container(
@@ -602,7 +602,6 @@ class _PanneauPoiBas extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Drag handle
             Container(
               width: 40,
               height: 4,
@@ -617,7 +616,6 @@ class _PanneauPoiBas extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    // Vignette photo
                     if (poi.photo != null)
                       ClipRRect(
                         borderRadius: BorderRadius.circular(10),
@@ -643,9 +641,8 @@ class _PanneauPoiBas extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // (Type POI supprimé)
                           Text(
-                            poi.titre,
+                            poi.getTitre(scope.locale),
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -653,9 +650,9 @@ class _PanneauPoiBas extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 4),
-                          const Text(
-                            'Appuyer pour en savoir plus →',
-                            style: TextStyle(fontSize: 13, color: Color(0xFF78716C)),
+                          Text(
+                            l10n.tapToLearnMore,
+                            style: const TextStyle(fontSize: 13, color: Color(0xFF78716C)),
                           ),
                         ],
                       ),
@@ -663,7 +660,6 @@ class _PanneauPoiBas extends StatelessWidget {
                   ],
                 ),
 
-                // Bouton fermer
                 Positioned(
                   top: 0,
                   right: 0,

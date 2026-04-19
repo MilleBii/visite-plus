@@ -3,9 +3,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import '../models/eglise.dart';
 import '../services/supabase_service.dart';
-// import '../widgets/banniere_download.dart';
+import '../main.dart';
+import '../l10n/app_localizations.dart';
 
-// Ajout pour la recherche
 import 'dart:async';
 
 class AccueilScreen extends StatefulWidget {
@@ -22,15 +22,11 @@ class _AccueilScreenState extends State<AccueilScreen> {
   bool _loading = true;
   String? _error;
 
-  // ...existing code...
-
   @override
   void initState() {
     super.initState();
     _loadEglise();
   }
-
-  // ...fonction _loadAllEglises supprimée car plus utilisée...
 
   Future<void> _loadEglise() async {
     try {
@@ -38,7 +34,7 @@ class _AccueilScreenState extends State<AccueilScreen> {
       if (!mounted) return;
       if (eglise == null) {
         setState(() {
-          _error = 'Église introuvable.';
+          _error = 'not_found';
           _loading = false;
         });
         return;
@@ -47,7 +43,6 @@ class _AccueilScreenState extends State<AccueilScreen> {
         _eglise = eglise;
         _loading = false;
       });
-      // Track vue
       SupabaseService.trackView(entiteType: 'eglise', entiteId: eglise.id);
     } catch (e) {
       if (!mounted) return;
@@ -60,7 +55,11 @@ class _AccueilScreenState extends State<AccueilScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ...existing code...
+    final scope = LocaleScope.of(context);
+    final l10n = AppLocalizations(scope.locale);
+    final otherLocale =
+        scope.locale.languageCode == 'fr' ? const Locale('en') : const Locale('fr');
+    final otherLangLabel = scope.locale.languageCode == 'fr' ? 'EN' : 'FR';
 
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -77,9 +76,12 @@ class _AccueilScreenState extends State<AccueilScreen> {
                 color: const Color(0xFF78716C),
               ),
               const SizedBox(height: 12),
-              Text(_error ?? 'Église introuvable.'),
+              Text(l10n.churchNotFound),
               const SizedBox(height: 16),
-              TextButton(onPressed: () => context.go('/'), child: const Text('Retour à la carte')),
+              TextButton(
+                onPressed: () => context.go('/'),
+                child: Text(l10n.backToMap),
+              ),
             ],
           ),
         ),
@@ -121,7 +123,7 @@ class _AccueilScreenState extends State<AccueilScreen> {
             ),
           ),
 
-          // Bouton retour carte
+          // Bouton retour carte (haut gauche)
           Positioned(
             top: MediaQuery.of(context).padding.top + 12,
             left: 16,
@@ -139,7 +141,33 @@ class _AccueilScreenState extends State<AccueilScreen> {
             ),
           ),
 
-          // ...existing code...
+          // Bouton langue (haut droite)
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 12,
+            right: 16,
+            child: GestureDetector(
+              onTap: () => scope.onLocaleChanged(otherLocale),
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.35),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    otherLangLabel,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
 
           // Contenu bas d'écran
           Positioned(
@@ -154,8 +182,6 @@ class _AccueilScreenState extends State<AccueilScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // ...existing code...
-
                     Text(
                       eglise.ville.toUpperCase(),
                       style: const TextStyle(
@@ -177,7 +203,7 @@ class _AccueilScreenState extends State<AccueilScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      eglise.messageBienvenue,
+                      eglise.getMessageBienvenue(scope.locale),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
@@ -189,21 +215,21 @@ class _AccueilScreenState extends State<AccueilScreen> {
                     // Boutons de navigation
                     _NavButton(
                       icon: '✝️',
-                      label: 'Comprendre la religion chrétienne',
+                      label: l10n.understandChristianity,
                       onTap: () => context.push('/eglise/${eglise.safeSlug}/comprendre'),
                       style: _NavButtonStyle.ghost,
                     ),
                     const SizedBox(height: 10),
                     _NavButtonIcon(
                       iconData: eglise.typeIcon,
-                      label: 'Visiter cette église',
+                      label: l10n.visitChurch,
                       onTap: () => context.push('/eglise/${eglise.safeSlug}/plan'),
                       style: _NavButtonStyle.primary,
                     ),
                     const SizedBox(height: 10),
                     _NavButton(
                       icon: '📅',
-                      label: 'Au programme',
+                      label: l10n.schedule,
                       onTap: () => context.push('/eglise/${eglise.safeSlug}/programme'),
                       style: _NavButtonStyle.ghost,
                     ),

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import '../models/eglise.dart';
 import '../models/evenement.dart';
 import '../services/supabase_service.dart';
 import '../config/type_config.dart';
+import '../main.dart';
+import '../l10n/app_localizations.dart';
 
 class ProgrammeScreen extends StatefulWidget {
   final String slug;
@@ -16,7 +17,6 @@ class ProgrammeScreen extends StatefulWidget {
 }
 
 class _ProgrammeScreenState extends State<ProgrammeScreen> {
-  Eglise? _eglise;
   List<Evenement> _evenements = [];
   bool _loading = true;
   String? _error;
@@ -32,13 +32,12 @@ class _ProgrammeScreenState extends State<ProgrammeScreen> {
       final eglise = await SupabaseService.fetchEgliseBySlug(widget.slug);
       if (!mounted) return;
       if (eglise == null) {
-        setState(() { _error = 'Église introuvable.'; _loading = false; });
+        setState(() { _error = 'not_found'; _loading = false; });
         return;
       }
       final evenements = await SupabaseService.fetchEvenements(eglise.id);
       if (!mounted) return;
       setState(() {
-        _eglise = eglise;
         _evenements = evenements;
         _loading = false;
       });
@@ -48,11 +47,10 @@ class _ProgrammeScreenState extends State<ProgrammeScreen> {
     }
   }
 
-  /// Groupe les événements par date
-  Map<String, List<Evenement>> get _grouped {
+  Map<String, List<Evenement>> _groupedForLocale(AppLocalizations l10n) {
     final map = <String, List<Evenement>>{};
     for (final e in _evenements) {
-      final key = DateFormat('EEEE d MMMM', 'fr_FR').format(e.dateHeure);
+      final key = DateFormat(l10n.datePattern, l10n.dateLocale).format(e.dateHeure);
       map.putIfAbsent(key, () => []).add(e);
     }
     return map;
@@ -60,6 +58,8 @@ class _ProgrammeScreenState extends State<ProgrammeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations(LocaleScope.of(context).locale);
+
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAF9),
       appBar: AppBar(
@@ -68,22 +68,25 @@ class _ProgrammeScreenState extends State<ProgrammeScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
-        title: const Text('Au programme'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: const Color(0xFFE7E5E4)),
+        title: Text(l10n.schedule),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: ColoredBox(
+            color: Color(0xFFE7E5E4),
+            child: SizedBox(height: 1, width: double.infinity),
+          ),
         ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!))
+              ? Center(child: Text(_error == 'not_found' ? l10n.churchNotFound : _error!))
               : _evenements.isEmpty
-                  ? _EmptyState()
+                  ? _EmptyState(l10n: l10n)
                   : ListView(
                       padding: const EdgeInsets.all(16),
                       children: [
-                        for (final entry in _grouped.entries) ...[
+                        for (final entry in _groupedForLocale(l10n).entries) ...[
                           _DateHeader(date: entry.key),
                           ...entry.value.map((e) => _EvenementCard(evenement: e)),
                           const SizedBox(height: 8),
@@ -125,9 +128,9 @@ class _EvenementCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = LocaleScope.of(context).locale.languageCode;
     final cfg = getEvenementConfig(evenement.type);
-    final heure = DateFormat('HH\'h\'mm').format(evenement.dateHeure)
-        .replaceAll('h00', 'h');
+    final heure = DateFormat('HH\'h\'mm').format(evenement.dateHeure).replaceAll('h00', 'h');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -139,7 +142,6 @@ class _EvenementCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Indicateur couleur type
           Container(
             width: 4,
             height: 44,
@@ -150,7 +152,6 @@ class _EvenementCard extends StatelessWidget {
             ),
           ),
 
-          // Heure
           SizedBox(
             width: 42,
             child: Text(
@@ -163,7 +164,6 @@ class _EvenementCard extends StatelessWidget {
             ),
           ),
 
-          // Contenu
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -177,7 +177,7 @@ class _EvenementCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        cfg.label,
+                        cfg.getLabel(lang),
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -215,22 +215,26 @@ class _EvenementCard extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
+  final AppLocalizations l10n;
+
+  const _EmptyState({required this.l10n});
+
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.calendar_today_outlined, size: 48, color: Color(0xFFD6D3D1)),
-          SizedBox(height: 12),
+          const Icon(Icons.calendar_today_outlined, size: 48, color: Color(0xFFD6D3D1)),
+          const SizedBox(height: 12),
           Text(
-            'Aucun événement à venir',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF78716C)),
+            l10n.noEvents,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF78716C)),
           ),
-          SizedBox(height: 6),
+          const SizedBox(height: 6),
           Text(
-            'Revenez bientôt !',
-            style: TextStyle(fontSize: 14, color: Color(0xFFA8A29E)),
+            l10n.comeBackSoon,
+            style: const TextStyle(fontSize: 14, color: Color(0xFFA8A29E)),
           ),
         ],
       ),

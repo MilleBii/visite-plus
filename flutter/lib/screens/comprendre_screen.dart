@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../models/question.dart';
 import '../services/supabase_service.dart';
+import '../main.dart';
+import '../l10n/app_localizations.dart';
 
 class ComprendreScreen extends StatefulWidget {
   final String slug;
@@ -15,7 +17,7 @@ class ComprendreScreen extends StatefulWidget {
 class _ComprendreScreenState extends State<ComprendreScreen> {
   List<Question> _questions = [];
   bool _loading = true;
-  int? _expanded; // id de la question ouverte
+  int? _expanded;
 
   @override
   void initState() {
@@ -34,6 +36,8 @@ class _ComprendreScreenState extends State<ComprendreScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations(LocaleScope.of(context).locale);
+
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAF9),
       appBar: AppBar(
@@ -42,10 +46,13 @@ class _ComprendreScreenState extends State<ComprendreScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
-        title: const Text('Comprendre la religion'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: const Color(0xFFE7E5E4)),
+        title: Text(l10n.understandReligion),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: ColoredBox(
+            color: Color(0xFFE7E5E4),
+            child: SizedBox(height: 1, width: double.infinity),
+          ),
         ),
       ),
       body: _loading
@@ -55,11 +62,11 @@ class _ComprendreScreenState extends State<ComprendreScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 20, top: 4),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 20, top: 4),
                     child: Text(
-                      'Questions fréquentes',
-                      style: TextStyle(
+                      l10n.faq,
+                      style: const TextStyle(
                         fontSize: 13,
                         color: Color(0xFF78716C),
                         letterSpacing: 0.5,
@@ -93,6 +100,8 @@ class _QuestionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final locale = LocaleScope.of(context).locale;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
@@ -121,7 +130,7 @@ class _QuestionCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          question.question,
+                          question.getQuestion(locale),
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
@@ -149,7 +158,7 @@ class _QuestionCard extends StatelessWidget {
                         ? Padding(
                             padding: const EdgeInsets.only(top: 12),
                             child: Text(
-                              question.reponse,
+                              question.getReponse(locale),
                               style: const TextStyle(
                                 fontSize: 14,
                                 color: Color(0xFF44403C),
