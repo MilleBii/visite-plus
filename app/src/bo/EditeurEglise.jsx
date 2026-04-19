@@ -22,7 +22,7 @@ const ONGLETS = [
 
 const STATS_RANGES = {
   '24h': { label: '24h', hours: 24, granularity: 'hour' },
-  '7j': { label: '7 jours', hours: 24 * 7, granularity: 'hour' },
+  '7j': { label: '7 jours', hours: 24 * 7, granularity: 'day' },
   '30j': { label: '30 jours', hours: 24 * 30, granularity: 'day' },
   '90j': { label: '90 jours', hours: 24 * 90, granularity: 'day' },
 }
@@ -34,6 +34,30 @@ function slotKey(dateValue, granularity) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:00`
   }
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function generateAllSlots(range, now = Date.now()) {
+  const { hours, granularity } = range
+  const slots = []
+  if (granularity === 'day') {
+    const days = Math.round(hours / 24)
+    for (let i = days - 1; i >= 0; i--) {
+      slots.push(slotKey(new Date(now - i * 86400000), 'day'))
+    }
+  } else {
+    for (let i = hours - 1; i >= 0; i--) {
+      slots.push(slotKey(new Date(now - i * 3600000), 'hour'))
+    }
+  }
+  return slots
+}
+
+function formatAxisLabel(label) {
+  if (label.includes(':')) {
+    return `${label.slice(11, 13)}h`
+  }
+  const [, month, day] = label.split('-')
+  return `${day}/${month}`
 }
 
 export default function EditeurEglise({ egliseId, onRetour }) {
@@ -252,9 +276,8 @@ export default function EditeurEglise({ egliseId, onRetour }) {
       grouped.set(key, (grouped.get(key) || 0) + (row.count || 0))
     }
 
-    const serie = Array.from(grouped.entries())
-      .map(([label, value]) => ({ label, value }))
-      .sort((a, b) => a.label.localeCompare(b.label))
+    const allSlots = generateAllSlots(range)
+    const serie = allSlots.map(label => ({ label, value: grouped.get(label) || 0 }))
 
     const topMap = new Map()
     for (const row of poiRows) {
@@ -463,6 +486,7 @@ export default function EditeurEglise({ egliseId, onRetour }) {
             stats={stats}
             statsRange={statsRange}
             onChangeRange={setStatsRange}
+            onRefresh={() => chargerStats(statsRange)}
           />
         )}
         {onglet === 'evenements' && (
@@ -722,7 +746,7 @@ function OngletEvenements({ form, onChange }) {
   );
 }
 
-function OngletStatistiques({ form, stats, statsRange, onChangeRange }) {
+function OngletStatistiques({ form, stats, statsRange, onChangeRange, onRefresh }) {
   const calendarConfigured = !!(form.google_calendar_id || '').trim()
   const publie = form.statut === 'publié'
   const maxValue = Math.max(...stats.serie.map(p => p.value), 1)
@@ -760,15 +784,25 @@ function OngletStatistiques({ form, stats, statsRange, onChangeRange }) {
           <p style={{ margin: 0, color: C.texteSecondaire, fontSize: 12 }}>
             Courbe des vues d'église ({STATS_RANGES[statsRange]?.granularity === 'hour' ? 'granularité 1h' : 'granularité jour'})
           </p>
-          <select
-            value={statsRange}
-            onChange={e => onChangeRange(e.target.value)}
-            style={{ borderRadius: 6, border: `1px solid ${C.bordure}`, padding: '6px 10px', fontSize: 12 }}
-          >
-            {Object.entries(STATS_RANGES).map(([k, v]) => (
-              <option key={k} value={k}>{v.label}</option>
-            ))}
-          </select>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button
+              onClick={onRefresh}
+              disabled={stats.chargement}
+              title="Rafraîchir"
+              style={{ background: 'none', border: `1px solid ${C.bordure}`, borderRadius: 6, padding: '6px 8px', cursor: 'pointer', color: C.texteSecondaire, lineHeight: 1, fontSize: 14 }}
+            >
+              {stats.chargement ? '…' : '↻'}
+            </button>
+            <select
+              value={statsRange}
+              onChange={e => onChangeRange(e.target.value)}
+              style={{ borderRadius: 6, border: `1px solid ${C.bordure}`, padding: '6px 10px', fontSize: 12 }}
+            >
+              {Object.entries(STATS_RANGES).map(([k, v]) => (
+                <option key={k} value={k}>{v.label}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {stats.chargement && <p style={{ margin: 0, color: C.texteSecondaire, fontSize: 12 }}>Chargement des statistiques...</p>}
@@ -780,13 +814,42 @@ function OngletStatistiques({ form, stats, statsRange, onChangeRange }) {
         )}
 
         {!stats.chargement && !stats.indisponible && (
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 180, borderBottom: `1px solid ${C.bordure}`, paddingBottom: 8 }}>
-            {stats.serie.length === 0 && <p style={{ margin: 0, color: C.texteSecondaire, fontSize: 12 }}>Aucune vue sur la période.</p>}
-            {stats.serie.map((point, idx) => (
-              <div key={`${point.label}-${idx}`} title={`${point.label}: ${point.value}`} style={{ flex: 1, minWidth: 6, display: 'flex', alignItems: 'flex-end' }}>
-                <div style={{ width: '100%', borderRadius: '4px 4px 0 0', background: '#1B4332', height: `${Math.max((point.value / maxValue) * 160, point.value > 0 ? 3 : 0)}px` }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0, marginTop: 8 }}>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {/* Axe Y */}
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-end', height: 160, paddingBottom: 0, flexShrink: 0 }}>
+                {[maxValue, Math.round(maxValue / 2), 0].map(tick => (
+                  <span key={tick} style={{ fontSize: 9, color: C.texteSecondaire, lineHeight: 1 }}>{tick}</span>
+                ))}
               </div>
-            ))}
+              {/* Barres */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 160, borderBottom: `1px solid ${C.bordure}`, borderLeft: `1px solid ${C.bordure}` }}>
+                  {stats.serie.length === 0 && <p style={{ margin: '0 0 0 8px', color: C.texteSecondaire, fontSize: 12 }}>Aucune vue sur la période.</p>}
+                  {stats.serie.map((point, idx) => (
+                    <div key={`${point.label}-${idx}`} title={`${point.label}: ${point.value}`} style={{ flex: 1, minWidth: 2, display: 'flex', alignItems: 'flex-end' }}>
+                      <div style={{ width: '100%', borderRadius: '4px 4px 0 0', background: '#1B4332', height: `${Math.max((point.value / maxValue) * 155, point.value > 0 ? 3 : 0)}px` }} />
+                    </div>
+                  ))}
+                </div>
+                {stats.serie.length > 0 && (() => {
+                  const step = Math.max(1, Math.ceil(stats.serie.length / 8))
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 3, paddingTop: 3 }}>
+                      {stats.serie.map((point, idx) => (
+                        <div key={`xl-${idx}`} style={{ flex: 1, minWidth: 2, overflow: 'visible' }}>
+                          {(idx % step === 0 || idx === stats.serie.length - 1) && (
+                            <span style={{ fontSize: 9, color: C.texteSecondaire, whiteSpace: 'nowrap' }}>
+                              {formatAxisLabel(point.label)}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
+              </div>
+            </div>
           </div>
         )}
       </Carte>

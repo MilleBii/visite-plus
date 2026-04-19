@@ -86,7 +86,22 @@ class _CarteScreenState extends State<CarteScreen> {
       context.push('/eglise/${eglise.safeSlug}');
     } else {
       setState(() => _egliseBulle = eglise);
+      _precacheEgliseImages(eglise);
     }
+  }
+
+  void _precacheEgliseImages(Eglise eglise) {
+    if (eglise.photoFacade != null) {
+      precacheImage(NetworkImage(eglise.photoFacade!), context);
+    }
+    SupabaseService.fetchPois(eglise.id).then((pois) {
+      if (!mounted) return;
+      for (final poi in pois) {
+        if (poi.photo != null) {
+          precacheImage(NetworkImage(poi.photo!), context);
+        }
+      }
+    });
   }
 
   @override

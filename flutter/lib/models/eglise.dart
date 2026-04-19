@@ -11,7 +11,8 @@ class Eglise {
   final String? photoFacade;
   final String messageBienvenue;
   final String? planImage; // URL image plan custom (Cloudinary)
-  final String? googleCalendarId;
+  final String? googleCalendarIdMesses;
+  final String? googleCalendarIdEvenements;
   final String? osmFootprintJson; // JSON des coords GPS du polygone OSM
   final double osmRotationAngle; // angle de rotation du plan OSM (°)
 
@@ -26,7 +27,8 @@ class Eglise {
     this.photoFacade,
     required this.messageBienvenue,
     this.planImage,
-    this.googleCalendarId,
+    this.googleCalendarIdMesses,
+    this.googleCalendarIdEvenements,
     this.osmFootprintJson,
     this.osmRotationAngle = 0,
   });
@@ -55,7 +57,8 @@ class Eglise {
         photoFacade: json['photo_facade'] as String?,
         messageBienvenue: json['message_bienvenue'] as String? ?? 'Croyant ou non, bienvenue dans cette église !',
         planImage: json['plan_image'] as String?,
-        googleCalendarId: json['google_calendar_id'] as String?,
+        googleCalendarIdMesses: json['google_calendar_id_messes'] as String?,
+        googleCalendarIdEvenements: json['google_calendar_id_evenements'] as String?,
         osmFootprintJson: json['osm_footprint_json'] as String?,
         osmRotationAngle: (json['osm_rotation_angle'] as num?)?.toDouble() ?? 0,
       );

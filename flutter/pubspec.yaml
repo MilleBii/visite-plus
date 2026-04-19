@@ -35,6 +35,9 @@ dependencies:
   # Liens externes (App Store / Google Play)
   url_launcher: ^6.3.2
 
+  # HTTP client (fetch iCal Google Calendar)
+  http: ^1.2.1
+
   # Dates & i18n
   intl: ^0.20.2
   flutter_markdown: ^0.7.7+1

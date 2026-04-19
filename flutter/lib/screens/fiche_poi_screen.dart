@@ -34,6 +34,7 @@ class _FichePoiScreenState extends State<FichePoiScreen> {
             _poi = poi;
             _loading = false;
           });
+          SupabaseService.trackView(entiteType: 'poi', entiteId: widget.poiId);
         } catch (e) {
           if (!mounted) return;
           setState(() {

@@ -155,24 +155,36 @@ class SupabaseService {
   // ── Événements ─────────────────────────────────────────────────────────────
 
   /// Récupère les événements à venir à partir d'aujourd'hui
-  /// Sources : table evenements (stockées en BD) + Google Calendar (temps réel)
+  /// Sources : table evenements (BD) + Google Calendar iCal (messes + évènements)
   static Future<List<Evenement>> fetchEvenements(int egliseId) async {
     try {
       final eglise = await fetchEgliseById(egliseId);
       if (eglise == null) return [];
 
-      // Récupérer les événements stockés en BD
       final evenementsBd = await _fetchEvenementsFromDb(egliseId);
 
-      // Si l'église a un Google Calendar ID, récupérer aussi depuis Google Calendar
-      if (eglise.googleCalendarId != null && eglise.googleCalendarId!.isNotEmpty) {
-        final evenementsGCal = await _fetchEvenementsFromGoogleCalendar(eglise.googleCalendarId!);
-        // Fusionner et dédupliquer les événements
-        return _mergeEvenements(evenementsBd, evenementsGCal);
+      const defaultCalendarId =
+          'e3b226fbcc39dc10d0f9b98e73ad8e8b556e64fe46a8fa72031b2452fa33f429@group.calendar.google.com';
+
+      final calMesses = eglise.googleCalendarIdMesses ?? '';
+      final calEvenements = eglise.googleCalendarIdEvenements ?? '';
+      final hasNone = calMesses.isEmpty && calEvenements.isEmpty;
+
+      final futures = <Future<List<Evenement>>>[];
+      if (hasNone) {
+        futures.add(_fetchIcal(defaultCalendarId));
+      } else {
+        if (calMesses.isNotEmpty) futures.add(_fetchIcal(calMesses, typeHint: 'messe'));
+        if (calEvenements.isNotEmpty) futures.add(_fetchIcal(calEvenements));
       }
 
-      return evenementsBd;
+      if (futures.isEmpty) return evenementsBd;
+
+      final results = await Future.wait(futures);
+      final gcalEvents = results.expand((list) => list).toList();
+      return _mergeEvenements(evenementsBd, gcalEvents);
     } catch (e) {
+      // ignore: avoid_print
       print('Erreur fetchEvenements: $e');
       return [];
     }
@@ -197,25 +209,31 @@ class SupabaseService {
     }
   }
 
-  /// Récupère les événements depuis Google Calendar via une Edge Function
-  /// La fonction RPC retourne les événements au format standard
-  static Future<List<Evenement>> _fetchEvenementsFromGoogleCalendar(String googleCalendarId) async {
+  /// Récupère les événements depuis un calendrier Google public via la Edge Function Supabase.
+  /// [typeHint] force le type si le calendrier est dédié (ex: 'messe').
+  static Future<List<Evenement>> _fetchIcal(String calendarId, {String? typeHint}) async {
     try {
-      // Appel RPC à une Edge Function qui récupère desde Google Calendar API
-      // La fonction RPC retourne une liste de JSON pour éviter les appels client directs
-      final response = await _client.rpc('get_google_calendar_events', params: {
-        'p_calendar_id': googleCalendarId,
-      });
-
-      if (response == null || response is! List) return [];
-
-      return (response)
-          .map((e) => Evenement.fromGoogleCalendar(e as Map<String, dynamic>))
-          .toList();
+      final response = await _client.functions.invoke(
+        'fetch-ical',
+        body: {'calendarId': calendarId},
+      );
+      final events = (response.data as Map?)?['events'] as List?;
+      if (events == null) return [];
+      return events.map((e) {
+        final map = e as Map<String, dynamic>;
+        final dateHeure = DateTime.parse(map['dateHeure'] as String).toLocal();
+        return Evenement(
+          id: map['id'] as String,
+          type: map['type'] as String,
+          titre: map['titre'] as String,
+          dateHeure: dateHeure,
+          description: map['description'] as String?,
+          source: 'google_calendar',
+        );
+      }).toList();
     } catch (e) {
-      // La Edge Function n'existe peut-être pas encore ou le calendrier n'est pas accessible
-      // On continue sans erreur critique
-      print('Info: Google Calendar non accessible ($googleCalendarId) : $e');
+      // ignore: avoid_print
+      print('Info: iCal fetch échoué ($calendarId) : $e');
       return [];
     }
   }
