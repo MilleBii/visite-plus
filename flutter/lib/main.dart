@@ -1,8 +1,8 @@
 import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'l10n/app_localizations.dart';
 import 'router.dart';
 
 const _supabaseUrl = 'https://lbksiotvnnpqkwslwjoq.supabase.co';
@@ -56,7 +56,6 @@ class _VisitePlusAppState extends State<VisitePlusApp> {
   @override
   void initState() {
     super.initState();
-    // Default to platform locale, fall back to French
     final platformLang = PlatformDispatcher.instance.locale.languageCode;
     _locale = platformLang == 'en' ? const Locale('en') : const Locale('fr');
   }
@@ -74,12 +73,8 @@ class _VisitePlusAppState extends State<VisitePlusApp> {
         theme: _buildTheme(),
         routerConfig: appRouter,
         locale: _locale,
-        supportedLocales: const [Locale('fr'), Locale('en')],
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
       ),
     );
   }

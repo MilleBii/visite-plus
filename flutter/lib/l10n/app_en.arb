@@ -1,0 +1,46 @@
+{
+  "@@locale": "en",
+
+  "churchNotFound": "Church not found.",
+  "backToMap": "Back to map",
+  "error": "Error",
+
+  "understandChristianity": "Understand Christianity",
+  "visitChurch": "Visit this church",
+  "schedule": "Events",
+
+  "searchHint": "Search for a church...",
+  "visit": "Visit",
+
+  "understandReligion": "Understand Christianity",
+  "faq": "Frequently asked questions",
+
+  "poiNotFound": "Point of interest not found.",
+  "sectionResume": "Summary",
+  "sectionComprendre": "About this artwork",
+  "sectionHistorique": "Historical context",
+  "sectionBible": "In the Bible",
+  "ttsListen": "Listen",
+  "ttsPause": "Pause",
+  "ttsStop": "Stop",
+
+  "churchPlan": "Church floor plan",
+  "osmMissing": "OSM footprint missing for this church.",
+  "tapToLearnMore": "Tap to learn more →",
+
+  "noEvents": "No upcoming events",
+  "comeBackSoon": "Check back soon!",
+
+  "poiTypeVitrail": "Stained glass",
+  "poiTypeStatue": "Statue",
+  "poiTypeTableau": "Painting",
+  "poiTypeDemarche": "Practice",
+  "poiTypeOther": "Other",
+
+  "evenementTypeMesse": "Mass",
+  "evenementTypeConfession": "Confession",
+  "evenementTypeEvenement": "Event",
+
+  "dateLocale": "en_US",
+  "datePattern": "EEEE, MMMM d"
+}

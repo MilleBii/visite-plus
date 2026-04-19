@@ -1,0 +1,46 @@
+{
+  "@@locale": "fr",
+
+  "churchNotFound": "Église introuvable.",
+  "backToMap": "Retour à la carte",
+  "error": "Erreur",
+
+  "understandChristianity": "Comprendre la religion chrétienne",
+  "visitChurch": "Visiter cette église",
+  "schedule": "Événements",
+
+  "searchHint": "Rechercher une église...",
+  "visit": "Visiter",
+
+  "understandReligion": "Comprendre la religion",
+  "faq": "Questions fréquentes",
+
+  "poiNotFound": "POI introuvable.",
+  "sectionResume": "Résumé",
+  "sectionComprendre": "Comprendre l'œuvre",
+  "sectionHistorique": "Contexte historique",
+  "sectionBible": "Dans la Bible",
+  "ttsListen": "Écouter",
+  "ttsPause": "Pause",
+  "ttsStop": "Arrêter",
+
+  "churchPlan": "Plan de l'église",
+  "osmMissing": "Polygone OSM manquant pour cette église.",
+  "tapToLearnMore": "Appuyer pour en savoir plus →",
+
+  "noEvents": "Aucun événement à venir",
+  "comeBackSoon": "Revenez bientôt !",
+
+  "poiTypeVitrail": "Vitrail",
+  "poiTypeStatue": "Statue",
+  "poiTypeTableau": "Tableau",
+  "poiTypeDemarche": "Démarche",
+  "poiTypeOther": "Autre",
+
+  "evenementTypeMesse": "Messe",
+  "evenementTypeConfession": "Confession",
+  "evenementTypeEvenement": "Événement",
+
+  "dateLocale": "fr_FR",
+  "datePattern": "EEEE d MMMM"
+}
