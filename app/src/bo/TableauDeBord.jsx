@@ -440,36 +440,11 @@ function LigneStats({ eglise, stat, onEditer }) {
           }}>
             {publie ? 'Publié' : 'Brouillon'}
           </span>
-          <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
-            <button
-              onClick={e => { e.stopPropagation(); onEditer() }}
-              title="Inspecter"
-              style={{
-                background: 'none', border: 'none', padding: 0, margin: 0,
-                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: 28, height: 28, borderRadius: '50%', color: C.primaire,
-                transition: 'background 0.15s', fontSize: 18,
-              }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            </button>
-            <button
-              onClick={supprimerEglise}
-              disabled={enSuppression}
-              title="Supprimer l'église"
-              style={{
-                background: 'none', border: 'none', padding: 0, margin: 0,
-                cursor: enSuppression ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: 28, height: 28, borderRadius: '50%', color: '#dc2626',
-                opacity: enSuppression ? 0.6 : 1, fontSize: 18,
-                transition: 'background 0.15s',
-              }}
-            >
-              {enSuppression ? '…' : (
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m5 0V4a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-              )}
-            </button>
-          </div>
+          <ActionBarEglise
+            onInspecter={e => { e.stopPropagation(); onEditer() }}
+            onSupprimer={supprimerEglise}
+            enSuppression={enSuppression}
+          />
         </div>
       </div>
 
@@ -504,7 +479,6 @@ function StatChiffre({ valeur, delta }) {
     </div>
   )
 }
-
 
 function MiniPhoto({ eglise }) {
   return eglise.photo_facade ? (
@@ -567,35 +541,48 @@ function LigneEglise({ eglise, selectionnee, onSelectionner, onEditer }) {
         }}>
           {publie ? 'Publié' : 'Brouillon'}
         </span>
-        <button
-          onClick={e => { e.stopPropagation(); onEditer() }}
-          style={{
-            fontSize: 11, color: C.primaire, background: 'none',
-            border: `1px solid ${C.primaire}`, borderRadius: 5,
-            padding: '2px 8px', cursor: 'pointer', fontWeight: 500,
-            marginBottom: 4,
-          }}
-        >
-          Voir
-        </button>
-        <button
-          onClick={supprimerEglise}
-          disabled={enSuppression}
-          title="Supprimer l'église"
-          style={{
-            fontSize: 16, color: '#fff', background: '#dc2626',
-            border: 'none', borderRadius: '50%', width: 28, height: 28,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: enSuppression ? 'wait' : 'pointer', fontWeight: 700,
-            boxShadow: '0 1px 4px rgba(0,0,0,0.10)', opacity: enSuppression ? 0.6 : 1,
-            marginTop: 2, marginBottom: 2, transition: 'background 0.15s',
-          }}
-        >
-          {enSuppression ? '…' : (
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m5 0V4a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-          )}
-        </button>
+        <ActionBarEglise
+          onInspecter={e => { e.stopPropagation(); onEditer() }}
+          onSupprimer={supprimerEglise}
+          enSuppression={enSuppression}
+        />
       </div>
+    </div>
+  )
+}
+
+// Action bar réutilisable pour stats/carte
+function ActionBarEglise({ onInspecter, onSupprimer, enSuppression, colorInspect = C.primaire, colorDelete = '#dc2626' }) {
+  return (
+    <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+      <button
+        onClick={onInspecter}
+        title="Inspecter"
+        style={{
+          background: 'none', border: 'none', padding: 0, margin: 0,
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 28, height: 28, borderRadius: '50%', color: colorInspect,
+          transition: 'background 0.15s', fontSize: 18,
+        }}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+      <button
+        onClick={onSupprimer}
+        disabled={enSuppression}
+        title="Supprimer l'église"
+        style={{
+          background: 'none', border: 'none', padding: 0, margin: 0,
+          cursor: enSuppression ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 28, height: 28, borderRadius: '50%', color: colorDelete,
+          opacity: enSuppression ? 0.6 : 1, fontSize: 18,
+          transition: 'background 0.15s',
+        }}
+      >
+        {enSuppression ? '…' : (
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m5 0V4a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+        )}
+      </button>
     </div>
   )
 }
