@@ -32,7 +32,7 @@ class SupabaseService {
   /// (DEBUG: pas de filtre statut pendant le dev)
   /// Utilise un cache de 5 minutes
   static Future<List<Eglise>> fetchEglises({bool ignoreCache = false}) async {
-    const cacheKey = 'eglises_all';
+    const cacheKey = 'eglises_publiees';
 
     if (!ignoreCache && _isCacheValid(cacheKey, _ttlEglises)) {
       final cached = (_cache[cacheKey] as List<Eglise>?) ?? [];
@@ -45,11 +45,10 @@ class SupabaseService {
       // ignore: avoid_print
       print('🔄 Fetching eglises from Supabase...');
       
-      // TEMP DEV: sans filtre statut pour tester avec les brouillons
-      // EN PROD: remetre .eq('statut', 'publié')
       final response = await _client
           .from('eglises')
           .select('*')
+          .eq('statut', 'publié')
           .order('nom');
       
       final eglises = (response as List).map((e) => Eglise.fromJson(e as Map<String, dynamic>)).toList();

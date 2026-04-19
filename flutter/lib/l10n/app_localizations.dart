@@ -15,14 +15,14 @@ class AppLocalizations {
   String get understandChristianity =>
       _fr ? 'Comprendre la religion chrétienne' : 'Understand Christianity';
   String get visitChurch => _fr ? 'Visiter cette église' : 'Visit this church';
-  String get schedule => _fr ? 'Au programme' : 'Schedule';
+  String get schedule => _fr ? 'Événements' : 'Events';
 
   // ── Carte ─────────────────────────────────────────────────────────────────
   String get searchHint => _fr ? 'Rechercher une église...' : 'Search for a church...';
   String get visit => _fr ? 'Visiter' : 'Visit';
 
   // ── Comprendre ────────────────────────────────────────────────────────────
-  String get understandReligion => _fr ? 'Comprendre la religion' : 'Understand religion';
+  String get understandReligion => _fr ? 'Comprendre la religion' : 'Understand Christianity';
   String get faq => _fr ? 'Questions fréquentes' : 'Frequently asked questions';
 
   // ── Fiche POI ─────────────────────────────────────────────────────────────
