@@ -472,10 +472,11 @@ export default function OngletPlan({ egliseId }) {
               </span>
               <button
                 onClick={async () => {
-                  const ancien = formPoi[editionChamp]
+                  let ancien = formPoi[editionChamp]
+                  if (typeof ancien === 'string') { try { ancien = JSON.parse(ancien) } catch { ancien = { fr: ancien } } }
                   const nouvVal = typeof ancien === 'object' && ancien !== null
                     ? { ...ancien, [langue]: editionValeur }
-                    : { fr: langue === 'fr' ? editionValeur : (ancien || ''), en: langue === 'en' ? editionValeur : '' }
+                    : { fr: langue === 'fr' ? editionValeur : '', en: langue === 'en' ? editionValeur : '' }
                   champForm(editionChamp, nouvVal)
                   await supabase.from('pois').update({ [editionChamp]: nouvVal }).eq('id', formPoi.id)
                   setEditionChamp(null)
@@ -825,8 +826,10 @@ function BoutonAutoFit({ bounds }) {
 
 function texteI18n(valeur, langue) {
   if (!valeur) return ''
-  if (typeof valeur === 'object') return valeur[langue] || ''
-  return langue === 'fr' ? valeur : ''
+  if (typeof valeur === 'string') {
+    try { valeur = JSON.parse(valeur) } catch { return langue === 'fr' ? valeur : '' }
+  }
+  return valeur[langue] || ''
 }
 
 function ChampForm({ label, children }) {
