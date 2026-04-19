@@ -270,10 +270,10 @@ export default function OngletPlan({ egliseId }) {
       position,
       titre: titreDefaut,
       photo: '',
-      texte_resume: '',
-      texte_comprendre: '',
-      texte_historique: '',
-      texte_bible: '',
+      texte_resume: {},
+      texte_comprendre: {},
+      texte_historique: {},
+      texte_bible: {},
     };
     const { data, error } = await supabase.from('pois').insert(donnees).select().single();
     if (error || !data) {
@@ -468,9 +468,18 @@ export default function OngletPlan({ egliseId }) {
             <div style={{ background: C.blanc, borderBottom: `1px solid ${C.bordure}`, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{ fontWeight: 600, fontSize: 14, color: '#111827', flex: 1 }}>
                 {CHAMPS_POI.find(c => c.champ === editionChamp)?.label}
+                <span style={{ marginLeft: 6, fontSize: 11, color: C.texteSecondaire, fontWeight: 400, textTransform: 'uppercase' }}>{langue}</span>
               </span>
               <button
-                onClick={() => { champForm(editionChamp, editionValeur); setEditionChamp(null); }}
+                onClick={async () => {
+                  const ancien = formPoi[editionChamp]
+                  const nouvVal = typeof ancien === 'object' && ancien !== null
+                    ? { ...ancien, [langue]: editionValeur }
+                    : { fr: langue === 'fr' ? editionValeur : (ancien || ''), en: langue === 'en' ? editionValeur : '' }
+                  champForm(editionChamp, nouvVal)
+                  await supabase.from('pois').update({ [editionChamp]: nouvVal }).eq('id', formPoi.id)
+                  setEditionChamp(null)
+                }}
                 style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: C.primaire, color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
               >
                 Valider
@@ -705,23 +714,32 @@ export default function OngletPlan({ egliseId }) {
               )}
             </ChampForm>
 
-            {CHAMPS_POI.map(({ champ, label }) => (
-              <div key={champ}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <label style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>{label}</label>
-                  <button
-                    onClick={() => { setEditionChamp(champ); setEditionValeur(formPoi[champ] || ''); }}
-                    title="Éditer"
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', color: C.texteSecondaire, fontSize: 14, lineHeight: 1 }}
-                  >
-                    ✏️
-                  </button>
+            {CHAMPS_POI.map(({ champ, label }) => {
+              const valeur = texteI18n(formPoi[champ], langue)
+              const valeurFr = texteI18n(formPoi[champ], 'fr')
+              const fallback = langue !== 'fr' && !valeur && valeurFr
+              const initValeur = valeur || (langue !== 'fr' ? valeurFr : '')
+              return (
+                <div key={champ}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <label style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>{label}</label>
+                    <button
+                      onClick={() => { setEditionChamp(champ); setEditionValeur(initValeur); }}
+                      title="Éditer"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', color: C.texteSecondaire, fontSize: 14, lineHeight: 1 }}
+                    >
+                      ✏️
+                    </button>
+                  </div>
+                  <div style={{ minHeight: 36, padding: '6px 10px', border: `1px solid ${fallback ? '#FDE68A' : C.bordure}`, borderRadius: 6, background: fallback ? '#FFFBEB' : '#f9fafb', fontSize: 12, color: fallback ? '#92400E' : (valeur ? '#111827' : C.texteSecondaire), whiteSpace: 'pre-wrap', lineHeight: 1.5, fontStyle: fallback ? 'italic' : 'normal' }}>
+                    {fallback
+                      ? <><span style={{ fontSize: 10, fontWeight: 600, marginRight: 5, background: '#FDE68A', borderRadius: 3, padding: '1px 4px' }}>FR</span>{valeurFr.slice(0, 100)}{valeurFr.length > 100 ? '…' : ''}</>
+                      : valeur ? valeur.slice(0, 100) + (valeur.length > 100 ? '…' : '') : 'Vide — cliquez ✏️ pour éditer'
+                    }
+                  </div>
                 </div>
-                <div style={{ minHeight: 36, padding: '6px 10px', border: `1px solid ${C.bordure}`, borderRadius: 6, background: '#f9fafb', fontSize: 12, color: formPoi[champ] ? '#111827' : C.texteSecondaire, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
-                  {formPoi[champ] ? formPoi[champ].slice(0, 100) + (formPoi[champ].length > 100 ? '…' : '') : 'Vide — cliquez ✏️ pour éditer'}
-                </div>
-              </div>
-            ))}
+              )
+            })}
 
           </div>
 
@@ -803,6 +821,12 @@ function BoutonAutoFit({ bounds }) {
       </div>
     </div>
   )
+}
+
+function texteI18n(valeur, langue) {
+  if (!valeur) return ''
+  if (typeof valeur === 'object') return valeur[langue] || ''
+  return langue === 'fr' ? valeur : ''
 }
 
 function ChampForm({ label, children }) {
