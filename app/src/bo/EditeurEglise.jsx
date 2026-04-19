@@ -345,7 +345,9 @@ export default function EditeurEglise({ egliseId, onRetour }) {
       const pages = Object.values(json?.query?.pages || {})
       const photo = pages.find(p => p.imageinfo?.[0]?.url)
       if (photo) {
-        champ('photo_facade', photo.imageinfo[0].url)
+        // On stocke l'URL directe (upload.wikimedia.org) et pas Special:FilePath
+        const directUrl = photo.imageinfo[0].url
+        champ('photo_facade', directUrl)
       } else {
         setErreur('Aucune photo trouvée sur Wikimedia Commons pour cette église.')
         setTimeout(() => setErreur(null), 3000)

@@ -144,7 +144,15 @@ export default function TableauDeBord({ onEditer, onAjouter }) {
     setStats(statsMap)
   }
 
-  const eglisesFiltrees = eglises.filter(e =>
+  // Tri : publié d'abord, puis brouillon, puis ordre alpha
+  const eglisesTriees = [...eglises].sort((a, b) => {
+    if (a.statut === b.statut) {
+      return a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' });
+    }
+    return a.statut === 'publié' ? -1 : 1;
+  });
+
+  const eglisesFiltrees = eglisesTriees.filter(e =>
     e.nom.toLowerCase().includes(recherche.toLowerCase()) ||
     e.ville.toLowerCase().includes(recherche.toLowerCase())
   )
@@ -318,7 +326,14 @@ function VueCarte({ eglises, eglisesFiltrees, egliseSelectionnee, recherche, set
 
 function VueStats({ eglises, stats, chargement, onEditer }) {
   const [recherche, setRecherche] = useState('')
-  const eglisesFiltrees = eglises.filter(e =>
+  // Tri : publié d'abord, puis brouillon, puis ordre alpha
+  const eglisesTriees = [...eglises].sort((a, b) => {
+    if (a.statut === b.statut) {
+      return a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' });
+    }
+    return a.statut === 'publié' ? -1 : 1;
+  });
+  const eglisesFiltrees = eglisesTriees.filter(e =>
     e.nom.toLowerCase().includes(recherche.toLowerCase()) ||
     e.ville.toLowerCase().includes(recherche.toLowerCase())
   )

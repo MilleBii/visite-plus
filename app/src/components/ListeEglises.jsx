@@ -22,13 +22,23 @@ export default function ListeEglises() {
   if (loading) return <div>Chargement...</div>;
   if (error) return <div>Erreur : {error}</div>;
 
+  // Tri : publié d'abord, puis brouillon, puis ordre alpha
+  const eglisesTriees = [...eglises].sort((a, b) => {
+    // Publié avant brouillon
+    if (a.statut === b.statut) {
+      // Ordre alpha nom
+      return a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' });
+    }
+    return a.statut === 'publié' ? -1 : 1;
+  });
+
   return (
     <div>
       <h2>Liste des églises</h2>
       <ul>
-        {eglises.map(e => (
+        {eglisesTriees.map(e => (
           <li key={e.id}>
-            <strong>{e.nom}</strong> — {e.ville}
+            <strong>{e.nom}</strong> — {e.ville} <span style={{fontSize:12, color:'#888'}}>({e.statut})</span>
           </li>
         ))}
       </ul>
