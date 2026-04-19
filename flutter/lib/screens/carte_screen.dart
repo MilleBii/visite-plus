@@ -106,7 +106,10 @@ class _CarteScreenState extends State<CarteScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations(LocaleScope.of(context).locale);
+    final scope = LocaleScope.of(context);
+    final l10n = AppLocalizations(scope.locale);
+    final otherLocale = scope.locale.languageCode == 'fr' ? const Locale('en') : const Locale('fr');
+    final otherLangLabel = scope.locale.languageCode == 'fr' ? 'EN' : 'FR';
 
     return Scaffold(
       body: Stack(
@@ -249,6 +252,29 @@ class _CarteScreenState extends State<CarteScreen> {
                             .toList();
                       });
                     },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => scope.onLocaleChanged(otherLocale),
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
+                    ),
+                    child: Center(
+                      child: Text(
+                        otherLangLabel,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1B4332),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
