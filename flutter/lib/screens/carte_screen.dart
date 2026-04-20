@@ -97,8 +97,9 @@ class _CarteScreenState extends State<CarteScreen> {
     SupabaseService.fetchPois(eglise.id).then((pois) {
       if (!mounted) return;
       for (final poi in pois) {
-        if (poi.photo != null) {
-          precacheImage(NetworkImage(poi.photo!), context);
+        final photo = poi.photo;
+        if (photo != null && photo.startsWith('http')) {
+          precacheImage(NetworkImage(photo), context);
         }
       }
     });

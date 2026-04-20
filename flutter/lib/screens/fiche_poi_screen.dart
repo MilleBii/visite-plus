@@ -150,18 +150,20 @@ class _FichePoiScreenState extends State<FichePoiScreen> {
             expandedHeight: 280,
             pinned: true,
             backgroundColor: Colors.white,
-            leading: Padding(
-              padding: const EdgeInsets.all(8),
-              child: CircleAvatar(
-                backgroundColor: Colors.black38,
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white, size: 18),
-                  onPressed: () => context.pop(),
+            leading: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: CircleAvatar(
+                  backgroundColor: Colors.black38,
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white, size: 18),
+                    onPressed: () => context.pop(),
+                  ),
                 ),
               ),
             ),
             flexibleSpace: FlexibleSpaceBar(
-              background: poi.photo != null
+              background: poi.photo != null && poi.photo!.startsWith('http')
                   ? GestureDetector(
                       onTap: () => _showFullImage(poi.photo!),
                       child: CachedNetworkImage(
@@ -173,7 +175,8 @@ class _FichePoiScreenState extends State<FichePoiScreen> {
                     )
                   : Container(
                       color: const Color(0xFFF5F5F4),
-                      child: Icon(cfg.icon, size: 64, color: cfg.color.withValues(alpha: 0.5)),
+                      alignment: Alignment.center,
+                      child: Text(cfg.emoji, style: const TextStyle(fontSize: 64)),
                     ),
             ),
           ),

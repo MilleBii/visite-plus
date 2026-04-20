@@ -39,8 +39,8 @@ create table public.evenements (
 
 create table public.questions (
   id serial primary key,
-  question text not null,
-  reponse text not null
+  question jsonb not null, -- {"fr": "...", "en": "..."}
+  reponse  jsonb not null  -- {"fr": "...", "en": "..."}
 );
 
 -- ── Statistiques de vues ──────────────────────────────────────────────────────

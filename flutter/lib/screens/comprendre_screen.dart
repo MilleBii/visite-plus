@@ -37,6 +37,7 @@ class _ComprendreScreenState extends State<ComprendreScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final locale = LocaleScope.of(context).locale;
 
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAF9),
@@ -75,6 +76,7 @@ class _ComprendreScreenState extends State<ComprendreScreen> {
                   ),
                   ..._questions.map((q) => _QuestionCard(
                         question: q,
+                        locale: locale,
                         isExpanded: _expanded == q.id,
                         onToggle: () => setState(
                           () => _expanded = _expanded == q.id ? null : q.id,
@@ -89,18 +91,19 @@ class _ComprendreScreenState extends State<ComprendreScreen> {
 
 class _QuestionCard extends StatelessWidget {
   final Question question;
+  final Locale locale;
   final bool isExpanded;
   final VoidCallback onToggle;
 
   const _QuestionCard({
     required this.question,
+    required this.locale,
     required this.isExpanded,
     required this.onToggle,
   });
 
   @override
   Widget build(BuildContext context) {
-    final locale = LocaleScope.of(context).locale;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),

@@ -617,7 +617,7 @@ class _PanneauPoiBas extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    if (poi.photo != null)
+                    if (poi.photo != null && poi.photo!.startsWith('http'))
                       ClipRRect(
                         borderRadius: BorderRadius.circular(10),
                         child: CachedNetworkImage(
@@ -632,10 +632,13 @@ class _PanneauPoiBas extends StatelessWidget {
                         width: 72,
                         height: 72,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF5F5F4),
+                          color: Colors.white,
                           borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: cfg.color, width: 2.5),
                         ),
-                        child: Icon(cfg.icon, color: cfg.color, size: 28),
+                        child: Center(
+                          child: Text(cfg.emoji, style: const TextStyle(fontSize: 28)),
+                        ),
                       ),
                     const SizedBox(width: 14),
                     Expanded(
