@@ -169,7 +169,6 @@
 
 *Cloudinary free tier (25 Go) couvre ~500 sites à 10 photos. Au-delà : plan payant ~89€/mois.
 
-> **vs chiffrage précédent** : suppression du backend Railway (~10-80€/mois selon charge) — Supabase Edge Functions inclus dans l'abonnement Supabase. Économie de 10 à 80€/mois selon l'échelle.
 
 ### Nom de domaine
 | Poste | Coût/an |
@@ -177,4 +176,4 @@
 | Nom de domaine (ex. visite-plus.fr) | ~15€/an |
 
 ### Comptes développeurs
-L'1visible gère déjà l'app "Prier Aujourd'hui" — ils disposent vraisemblablement déjà d'un compte Apple Developer et Google Play Console. **À confirmer** : si c'est le cas, aucun coût ni délai supplémentaire pour la publication.
+L'1visible gère déjà l'app "Prier Aujourd'hui" — vous disposez vraisemblablement déjà d'un compte Apple Developer et Google Play Console. **À confirmer** : si c'est le cas, aucun coût ni délai supplémentaire pour la publication.

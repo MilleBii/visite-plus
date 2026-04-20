@@ -118,6 +118,20 @@
     - Si chaque paroisse paye individuellement → envisager **AlloAsso** (plateforme conçue pour les associations et paroisses, sans commission, reçu fiscal possible) plutôt qu'une solution généraliste.
     - À trancher avant de dimensionner l'onboarding.
 
+## Authentification
+
+19. **SSO via Enoria — faisabilité à confirmer**
+
+    Beaucoup de diocèses utilisent Enoria. Si Enoria expose un endpoint OIDC ou SAML, on pourrait permettre aux administrateurs diocésains de se connecter à Visite+ avec leur compte Enoria (zéro création de compte, onboarding simplifié).
+
+    À investiguer :
+    - Enoria supporte-t-il OIDC ou SAML 2.0 en tant qu'IdP ?
+    - Y a-t-il une API d'authentification documentée ?
+    - Si oui → à chiffrer comme option (implique upgrade Supabase plan Pro minimum)
+    - Si non → login email/password classique ou "Login avec Google"
+
+---
+
 ## Publication stores
 
 17. **Qui gère la publication sur l'App Store et Google Play ?**
