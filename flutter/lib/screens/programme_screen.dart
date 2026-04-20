@@ -4,8 +4,8 @@ import 'package:intl/intl.dart';
 import '../models/evenement.dart';
 import '../services/supabase_service.dart';
 import '../config/type_config.dart';
-import '../main.dart';
 import '../l10n/app_localizations.dart';
+import '../l10n/l10n_helpers.dart';
 
 class ProgrammeScreen extends StatefulWidget {
   final String slug;
@@ -58,7 +58,7 @@ class _ProgrammeScreenState extends State<ProgrammeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations(LocaleScope.of(context).locale);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAF9),
@@ -128,7 +128,7 @@ class _EvenementCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lang = LocaleScope.of(context).locale.languageCode;
+    final l10n = AppLocalizations.of(context);
     final cfg = getEvenementConfig(evenement.type);
     final heure = DateFormat('HH\'h\'mm').format(evenement.dateHeure).replaceAll('h00', 'h');
 
@@ -177,7 +177,7 @@ class _EvenementCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        cfg.getLabel(lang),
+                        evenementTypeLabel(l10n, evenement.type),
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,

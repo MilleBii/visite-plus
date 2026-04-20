@@ -56,7 +56,7 @@ class _AccueilScreenState extends State<AccueilScreen> {
   @override
   Widget build(BuildContext context) {
     final scope = LocaleScope.of(context);
-    final l10n = AppLocalizations(scope.locale);
+    final l10n = AppLocalizations.of(context);
 
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));

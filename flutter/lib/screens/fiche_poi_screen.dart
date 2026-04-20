@@ -123,9 +123,8 @@ class _FichePoiScreenState extends State<FichePoiScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scope = LocaleScope.of(context);
-    final locale = scope.locale;
-    final l10n = AppLocalizations(locale);
+    final locale = LocaleScope.of(context).locale;
+    final l10n = AppLocalizations.of(context);
 
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     if (_poi == null) {
@@ -222,7 +221,6 @@ class _FichePoiScreenState extends State<FichePoiScreen> {
                         state: _ttsState,
                         onToggle: _toggleTts,
                         onStop: _stopTts,
-                        l10n: l10n,
                       ),
                     ],
                   ),
@@ -264,17 +262,16 @@ class _TtsIconButton extends StatelessWidget {
   final _TtsState state;
   final VoidCallback onToggle;
   final VoidCallback onStop;
-  final AppLocalizations l10n;
 
   const _TtsIconButton({
     required this.state,
     required this.onToggle,
     required this.onStop,
-    required this.l10n,
   });
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

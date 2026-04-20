@@ -36,7 +36,7 @@ class _ComprendreScreenState extends State<ComprendreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations(LocaleScope.of(context).locale);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAF9),

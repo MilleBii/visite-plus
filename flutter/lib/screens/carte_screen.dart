@@ -107,7 +107,7 @@ class _CarteScreenState extends State<CarteScreen> {
   @override
   Widget build(BuildContext context) {
     final scope = LocaleScope.of(context);
-    final l10n = AppLocalizations(scope.locale);
+    final l10n = AppLocalizations.of(context);
     final otherLocale = scope.locale.languageCode == 'fr' ? const Locale('en') : const Locale('fr');
     final otherLangLabel = scope.locale.languageCode == 'fr' ? 'EN' : 'FR';
 
@@ -362,7 +362,7 @@ class _EgliseBulle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations(LocaleScope.of(context).locale);
+    final l10n = AppLocalizations.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(

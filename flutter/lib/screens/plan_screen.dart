@@ -9,6 +9,7 @@ import '../services/supabase_service.dart';
 import '../config/type_config.dart';
 import '../main.dart';
 import '../l10n/app_localizations.dart';
+import '../l10n/l10n_helpers.dart';
 import 'fiche_poi_screen.dart';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -268,7 +269,7 @@ class _PlanScreenState extends State<PlanScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations(LocaleScope.of(context).locale);
+    final l10n = AppLocalizations.of(context);
 
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     if (_footprintCanvas.isEmpty) {
@@ -520,7 +521,7 @@ class _Legende extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lang = LocaleScope.of(context).locale.languageCode;
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -552,7 +553,7 @@ class _Legende extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          entry.value.getLabel(lang),
+                          poiTypeLabel(l10n, entry.key),
                           style: const TextStyle(fontSize: 11, color: Color(0xFF44403C)),
                         ),
                       ],
@@ -581,8 +582,8 @@ class _PanneauPoiBas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scope = LocaleScope.of(context);
-    final l10n = AppLocalizations(scope.locale);
+    final locale = LocaleScope.of(context).locale;
+    final l10n = AppLocalizations.of(context);
     final cfg = getPoiConfig(poi.type);
 
     return GestureDetector(
@@ -642,7 +643,7 @@ class _PanneauPoiBas extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            poi.getTitre(scope.locale),
+                            poi.getTitre(locale),
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
