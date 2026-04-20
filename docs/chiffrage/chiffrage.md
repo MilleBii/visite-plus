@@ -1,7 +1,7 @@
 # Chiffrage — Visite+
 
 > Taux horaire : 62.5€/h (TJM 500€ / 8h)
-> Chiffrage établi le 2026-03-31
+> Chiffrage établi le 2026-03-31 — mis à jour le 2026-04-20
 
 ---
 
@@ -11,46 +11,56 @@
 |---|---|---|
 | **Cadrage & ateliers client** | | |
 | Ateliers client (plan, POI, droits, événements...) | 8h | 8h |
-| Architecture & choix techniques | 4h | 2h |
-| *Sous-total* | *12h* | *10h* |
+| Architecture & choix techniques | 4h | 1h |
+| *Sous-total* | *12h* | *9h* |
 | **Backend — Supabase Edge Functions** | | |
-| Setup projet, BDD, auth (rôles super_admin / editeur_1visible) | 6h | 2h |
-| API églises (CRUD, géolocalisation, photo façade Wikimedia) | 4h | 2h |
-| Footprint OSM (Overpass) + rotation + ajustement manuel angle | 12h | 4h |
-| Upload plan photo (override OSM) | 4h | 2h |
-| API POI (CRUD, positionnement, upload photo Cloudinary) | 4h | 2h |
-| Intégration Google Calendar (lecture événements) | 4h | 2h |
+| Setup projet, BDD, auth (rôles super_admin / editeur_1visible) | 6h | 1h |
+| API églises (CRUD, géolocalisation, photo façade Wikimedia) | 4h | 1h |
+| Footprint OSM (Overpass) + rotation + ajustement manuel angle | 12h | 3h |
+| Upload plan photo (override OSM) | 4h | 30min |
+| API POI (CRUD, positionnement, upload photo Cloudinary) | 4h | 1h |
+| Intégration Google Calendar (lecture événements) | 4h | 1h |
 | Génération QR Code + deep link config (apple-app-site-association + assetlinks.json) | 4h | 2h |
-| Stats — endpoint POST /stats/view + agrégations dashboard | 6h | 2h |
-| *Sous-total* | *44h* | *18h* |
+| Stats — endpoint POST /stats/view + agrégations dashboard | 6h | 1h |
+| *Sous-total* | *44h* | *10h30* |
 | **Back Office — React (Vite)** | | |
-| Setup projet, navigation, design system PC | 4h | 2h |
-| Gestion des églises (fiche, photo, géocodage) | 4h | 2h |
-| Éditeur plan + positionnement POI (Leaflet CRS.Simple) | 8h | 4h |
-| Fiches POI — formulaire + upload photo | 4h | 2h |
-| Gestion événements (config Google Calendar ID par église) | 2h | 2h |
-| Génération QR Code + page impression A4 | 4h | 2h |
-| Gestion des utilisateurs (super_admin) | 4h | 2h |
-| Dashboard stats (courbe fréquentation + classement POI) | 8h | 4h |
-| *Sous-total* | *38h* | *20h* |
+| Setup projet, navigation, design system PC | 4h | 1h |
+| Gestion des églises (fiche, photo, géocodage) | 4h | 30min |
+| Éditeur plan + positionnement POI (Leaflet CRS.Simple) | 8h | 3h |
+| Fiches POI — formulaire + upload photo | 4h | 30min |
+| Gestion événements (config Google Calendar ID par église) | 2h | 30min |
+| Génération QR Code + page impression A4 | 4h | 30min |
+| Gestion des utilisateurs (super_admin) | 4h | 30min |
+| Dashboard stats (courbe fréquentation + classement POI) | 8h | 1h |
+| *Sous-total* | *38h* | *7h30* |
 | **App Flutter — iOS + Android + Web** | | |
-| Setup projet Flutter (iOS + Android + Web targets) | 4h | 2h |
-| Carte d'accueil (flutter_map + markers types + géoloc) | 8h | 4h |
+| Setup projet Flutter (iOS + Android + Web targets) | 4h | 1h |
+| Carte d'accueil (flutter_map + markers types + géoloc) | 8h | 3h |
 | Deep linking — Universal Links (iOS) + App Links (Android) | 4h | 2h |
-| Bannière de téléchargement (Flutter Web → app native) | 2h | 2h |
-| Accueil église (photo façade + message + navigation) | 2h | 2h |
-| Section "Comprendre la religion" (4 Q/R) | 2h | 2h |
-| Plan interactif (flutter_map CRS.Simple + POI + légende) | 12h | 6h |
-| Fiche POI courte + fiche complète (sections dépliables) | 4h | 2h |
-| Section "Au programme" (Google Calendar) | 4h | 2h |
+| Bannière de téléchargement (Flutter Web → app native) | 2h | 30min |
+| Accueil église (photo façade + message + navigation) | 2h | 30min |
+| Section "Comprendre la religion" (4 Q/R) | 2h | 30min |
+| Plan interactif (flutter_map CRS.Simple + POI + légende) | 12h | 3h |
+| Fiche POI courte + fiche complète (sections dépliables) | 4h | 30min |
+| Section "Au programme" (Google Calendar) | 4h | 1h |
 | Audio guide TTS natif (flutter_tts — lecture des textes POI) | 2h | 1h |
-| *Sous-total* | *44h* | *25h* |
+| *Sous-total* | *44h* | *13h* |
+| **Gestion diocèse / paroisse / clocher** | | |
+| Ateliers client (trancher les 5 questions) | 4h | 4h |
+| Modélisation BDD (diocèse/paroisse/affiliation) + migration | 4h | 1h |
+| RLS multi-niveaux (policies Supabase) | 4h | 1h |
+| BO — écrans CRUD diocèse + paroisse | 8h | 1h |
+| BO — navigation hiérarchique (breadcrumbs, filtres cascade) | 4h | 1h |
+| BO — vue paroisse (liste clochers) + vue diocèse (agrégats) | 4h | 1h |
+| Flux invitation / activation compte (email + lien) | 6h | 1h |
+| Stats multi-niveaux (agrégations diocèse/paroisse + drill-down) | 4h | 1h |
+| *Sous-total* | *38h* | *11h* |
 | **Déploiement & livraison** | | |
-| Déploiement Firebase Hosting + Supabase (prod) | 4h | 2h |
+| Déploiement Firebase Hosting + Supabase (prod) | 4h | 1h |
 | Soumission technique App Store + Google Play (build, signature, upload) | 4h | 4h |
 | Tests sur devices réels (iOS Safari, Android Chrome + app native) | 12h | 8h |
 | Formation client BO | 4h | 4h |
-| *Sous-total* | *24h* | *18h* |
+| *Sous-total* | *24h* | *17h* |
 
 ---
 
@@ -58,16 +68,17 @@
 
 | | Sans IA | Avec IA |
 |---|---|---|
-| Cadrage & Ateliers clients | 12h | 10h |
-| Backend (Edge Functions) | 44h | 18h |
-| Back Office (React) | 38h | 20h |
-| App Flutter | 44h | 25h |
-| Déploiement | 24h | 18h |
-| **Base** | **162h** | **91h** |
-| Marge imprévus (20%) | 32h | 18h |
-| **Total facturable** | **194h** | **109h** |
-| **Honoraires à 62.5€/h** | **12 125€ HT** | **6 812€ HT** |
-| **Arrondi commercial** | **12 000€ HT** | **7 000€ HT** |
+| Cadrage & Ateliers clients | 12h | 9h |
+| Backend (Edge Functions) | 44h | 10h30 |
+| Back Office (React) | 38h | 7h30 |
+| App Flutter | 44h | 13h |
+| Diocèse / paroisse / clocher | 38h | 11h |
+| Déploiement | 24h | 17h |
+| **Base** | **200h** | **68h** |
+| Marge imprévus (20%) | 40h | 14h |
+| **Total facturable** | **240h** | **82h** |
+| **Honoraires à 62.5€/h** | **15 000€ HT** | **5 125€ HT** |
+| **Arrondi commercial** | **15 000€ HT** | **5 000€ HT** |
 
 ---
 
@@ -78,9 +89,9 @@
 ## Conditions & garanties
 
 ### Modalités de paiement
-- 30% à la signature (2 100€ HT)
-- 40% à la livraison de la phase BO + backend fonctionnel (2 800€ HT)
-- 30% à la recette finale (2 100€ HT)
+- 30% à la signature (1 500€ HT)
+- 40% à la livraison de la phase BO + backend fonctionnel (2 000€ HT)
+- 30% à la recette finale (1 500€ HT)
 
 ---
 
@@ -116,17 +127,13 @@
 
 ## Options à chiffrer séparément
 
-> **i18n** : l'infrastructure multi-langue est incluse dans le socle (tables de traductions en BDD, ARB Flutter, BO multi-langue). Les options ci-dessous concernent uniquement le **travail de traduction** par langue ajoutée, pas la mise en place technique.
+> **i18n** : la version de base inclut **français et anglais** (app + publication stores). L'infrastructure multi-langue est dans le socle (tables de traductions en BDD, ARB Flutter, BO multi-langue). Les options ci-dessous concernent l'ajout de langues supplémentaires.
 
 | Option | Sans IA | Avec IA | Honoraires |
 |---|---|---|---|
-| Intégration Messe Info (API) | 12h | 4h | 250€ HT |
-| Traduction interface + contenu central — par langue | 4h | 1h | 50€ HT |
-| Traduction automatique fiches POI (DeepL/Google Translate API) | 8h | 4h | 250€ HT |
-| Audio guide — ElevenLabs (voix IA réaliste, MP3 stocké Cloudinary) | 8h | 3h | 150€ HT |
-| Pipeline Fastlane (screenshots auto + upload stores) | 16h | 8h | 500€ HT |
-
-> **Fastlane** : pertinent uniquement si nombreuses langues + mises à jour fréquentes. À réévaluer une fois le nombre de langues arrêté.
+| Traduction automatique fiches POI (Claude API — batch) | 8h | 2h | 125€ HT |
+| Audio guide — ElevenLabs ou Grok Aurora (voix IA réaliste, MP3 stocké Cloudinary) | 8h | 3h | 150€ HT |
+| Pipeline Fastlane — langues supplémentaires (screenshots + upload stores) | 8h | 4h | 250€ HT |
 
 ---
 
