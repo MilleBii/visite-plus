@@ -57,6 +57,8 @@ class _AccueilScreenState extends State<AccueilScreen> {
   Widget build(BuildContext context) {
     final scope = LocaleScope.of(context);
     final l10n = AppLocalizations.of(context);
+    final otherLocale = scope.locale.languageCode == 'fr' ? const Locale('en') : const Locale('fr');
+    final otherLangLabel = scope.locale.languageCode == 'fr' ? 'EN' : 'FR';
 
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -115,6 +117,33 @@ class _AccueilScreenState extends State<AccueilScreen> {
                     Colors.black.withOpacity(0.88),
                   ],
                   stops: const [0.0, 0.3, 0.65, 1.0],
+                ),
+              ),
+            ),
+          ),
+
+          // Bouton sélection langue (haut droite)
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 12,
+            right: 16,
+            child: GestureDetector(
+              onTap: () => scope.onLocaleChanged(otherLocale),
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.35),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    otherLangLabel,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
               ),
             ),
