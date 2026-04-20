@@ -3,6 +3,9 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { supabase } from '../supabaseClient'
+import { typeConfig } from '../data/mockData'
+
+const TYPES_POI = Object.keys(typeConfig)
 
 const C = {
   primaire: '#1B4332',
@@ -22,11 +25,13 @@ const TYPE_ICONE = {
   'cathédrale': '🏛️',
 }
 
+const COULEUR_MARKER = { 'publié': '#1B4332', 'pause': '#2563EB' }
+
 function creerMarker(eglise) {
   return L.divIcon({
     className: '',
     html: `<div style="
-      background: ${eglise.statut === 'publié' ? '#1B4332' : '#9CA3AF'};
+      background: ${COULEUR_MARKER[eglise.statut] || '#9CA3AF'};
       color: white; border-radius: 50%; width: 28px; height: 28px;
       display: flex; align-items: center; justify-content: center;
       font-size: 13px; border: 2px solid white;
@@ -35,6 +40,14 @@ function creerMarker(eglise) {
     iconSize: [28, 28],
     iconAnchor: [14, 14],
   })
+}
+
+const ORDRE_STATUT = { 'publié': 0, 'pause': 1, 'brouillon': 2 }
+function trierEglises(liste) {
+  return [...liste].sort((a, b) =>
+    ((ORDRE_STATUT[a.statut] ?? 3) - (ORDRE_STATUT[b.statut] ?? 3)) ||
+    a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' })
+  )
 }
 
 export default function TableauDeBord({ onEditer, onAjouter }) {
@@ -81,11 +94,11 @@ export default function TableauDeBord({ onEditer, onAjouter }) {
     const il_y_a_28j = new Date(maintenant - 28 * 86400000).toISOString()
     const il_y_a_56j = new Date(maintenant - 56 * 86400000).toISOString()
 
-    // Récupère le mapping poi_id → eglise_id pour les POIs de nos églises
+    // Récupère le mapping poi_id → { eglise_id, type } pour les POIs de nos églises
     const { data: poisData } = await supabase
-      .from('pois').select('id, eglise_id').in('eglise_id', ids)
+      .from('pois').select('id, eglise_id, type').in('eglise_id', ids)
     const poiVersEglise = {}
-    for (const p of poisData || []) poiVersEglise[p.id] = p.eglise_id
+    for (const p of poisData || []) poiVersEglise[p.id] = { eglise_id: p.eglise_id, type: p.type }
     const poiIds = Object.keys(poiVersEglise).map(Number)
 
     const queries = [
@@ -113,44 +126,60 @@ export default function TableauDeBord({ onEditer, onAjouter }) {
     if (e3) console.error('stats_vues poi courant:', e3.message)
     if (e4) console.error('stats_vues poi précédent:', e4.message)
 
-    // Somme count par eglise_id
-    function sommeParEglise(rows, mapping) {
+    function sommeVisitesParEglise(rows) {
       const acc = {}
+      for (const row of rows || []) acc[row.entite_id] = (acc[row.entite_id] || 0) + (row.count || 0)
+      return acc
+    }
+
+    // Agrège les vues POI par (eglise_id, type)
+    function sommePoiParEgliseEtType(rows) {
+      const acc = {}  // { eglise_id: { type: count } }
       for (const row of rows || []) {
-        const eId = mapping ? mapping[row.entite_id] : row.entite_id
-        if (eId) acc[eId] = (acc[eId] || 0) + (row.count || 0)
+        const info = poiVersEglise[row.entite_id]
+        if (!info) continue
+        const { eglise_id, type } = info
+        if (!acc[eglise_id]) acc[eglise_id] = {}
+        acc[eglise_id][type] = (acc[eglise_id][type] || 0) + (row.count || 0)
       }
       return acc
     }
 
-    const visites28j   = sommeParEglise(egliseCourant,  null)
-    const visitesPrec  = sommeParEglise(eglisePrecedent, null)
-    const vuesPoi28j   = sommeParEglise(poiCourant,  poiVersEglise)
-    const vuesPoiPrec  = sommeParEglise(poiPrecedent, poiVersEglise)
+    const visites28j  = sommeVisitesParEglise(egliseCourant)
+    const visitesPrec = sommeVisitesParEglise(eglisePrecedent)
+    const vuesPoi28j  = sommePoiParEgliseEtType(poiCourant)
+    const vuesPoiPrec = sommePoiParEgliseEtType(poiPrecedent)
 
     const statsMap = {}
     for (const id of ids) {
-      const v28  = visites28j[id]  || 0
-      const vPr  = visitesPrec[id] || 0
-      const p28  = vuesPoi28j[id]  || 0
-      const pPr  = vuesPoiPrec[id] || 0
+      const v28 = visites28j[id] || 0
+      const vPr = visitesPrec[id] || 0
+      const vuesPar = {}
+      const deltaVues = {}
+      for (const t of TYPES_POI) {
+        const c28 = vuesPoi28j[id]?.[t] || 0
+        const cPr = vuesPoiPrec[id]?.[t] || 0
+        vuesPar[t] = c28
+        deltaVues[t] = cPr > 0 ? Math.round(((c28 - cPr) / cPr) * 100) : null
+      }
       statsMap[id] = {
-        visites28j:  v28,
-        vuesPoi28j:  p28,
-        delta:      vPr > 0 ? Math.round(((v28 - vPr) / vPr) * 100) : null,
-        deltaVues:  pPr > 0 ? Math.round(((p28 - pPr) / pPr) * 100) : null,
+        visites28j: v28,
+        delta: vPr > 0 ? Math.round(((v28 - vPr) / vPr) * 100) : null,
+        vuesPoi28j: vuesPar,
+        deltaVues,
       }
     }
     setStats(statsMap)
   }
 
-  // Tri : publié d'abord, puis brouillon, puis ordre alpha
-  const eglisesTriees = [...eglises].sort((a, b) => {
-    if (a.statut === b.statut) {
-      return a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' });
-    }
-    return a.statut === 'publié' ? -1 : 1;
-  });
+  async function togglePauseEglise(id, statutActuel) {
+    const nouveauStatut = statutActuel === 'publié' ? 'pause' : 'publié'
+    const { error } = await supabase.from('eglises').update({ statut: nouveauStatut }).eq('id', id)
+    if (error) { alert('Erreur : ' + error.message); return }
+    setEglises(prev => prev.map(e => e.id === id ? { ...e, statut: nouveauStatut } : e))
+  }
+
+  const eglisesTriees = trierEglises(eglises)
 
   const eglisesFiltrees = eglisesTriees.filter(e =>
     e.nom.toLowerCase().includes(recherche.toLowerCase()) ||
@@ -231,6 +260,7 @@ export default function TableauDeBord({ onEditer, onAjouter }) {
           surSelectionEglise={surSelectionEglise}
           setEgliseSelectionnee={setEgliseSelectionnee}
           onEditer={onEditer}
+          onTogglePause={togglePauseEglise}
         />
       ) : (
         <VueStats
@@ -238,13 +268,14 @@ export default function TableauDeBord({ onEditer, onAjouter }) {
           stats={stats}
           chargement={chargement}
           onEditer={onEditer}
+          onTogglePause={togglePauseEglise}
         />
       )}
     </div>
   )
 }
 
-function VueCarte({ eglises, eglisesFiltrees, egliseSelectionnee, recherche, setRecherche, chargement, erreur, avecPosition, centreDefaut, mapRef, surSelectionEglise, setEgliseSelectionnee, onEditer }) {
+function VueCarte({ eglises, eglisesFiltrees, egliseSelectionnee, recherche, setRecherche, chargement, erreur, avecPosition, centreDefaut, mapRef, surSelectionEglise, setEgliseSelectionnee, onEditer, onTogglePause }) {
   return (
     <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
       {/* Colonne gauche — liste */}
@@ -275,6 +306,7 @@ function VueCarte({ eglises, eglisesFiltrees, egliseSelectionnee, recherche, set
               selectionnee={egliseSelectionnee === eglise.id}
               onSelectionner={() => surSelectionEglise(eglise)}
               onEditer={() => onEditer(eglise.id)}
+              onTogglePause={onTogglePause}
             />
           ))}
           {!chargement && eglisesFiltrees.length === 0 && (
@@ -324,15 +356,9 @@ function VueCarte({ eglises, eglisesFiltrees, egliseSelectionnee, recherche, set
   )
 }
 
-function VueStats({ eglises, stats, chargement, onEditer }) {
+function VueStats({ eglises, stats, chargement, onEditer, onTogglePause }) {
   const [recherche, setRecherche] = useState('')
-  // Tri : publié d'abord, puis brouillon, puis ordre alpha
-  const eglisesTriees = [...eglises].sort((a, b) => {
-    if (a.statut === b.statut) {
-      return a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' });
-    }
-    return a.statut === 'publié' ? -1 : 1;
-  });
+  const eglisesTriees = trierEglises(eglises)
   const eglisesFiltrees = eglisesTriees.filter(e =>
     e.nom.toLowerCase().includes(recherche.toLowerCase()) ||
     e.ville.toLowerCase().includes(recherche.toLowerCase())
@@ -363,7 +389,9 @@ function VueStats({ eglises, stats, chargement, onEditer }) {
           </div>
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '0 32px', gap: 32 }}>
             <ColHeader label="Visites" sub="28 derniers jours" />
-            <ColHeader label="Vues de POIs" sub="28 derniers jours" />
+            {TYPES_POI.map(t => (
+              <ColHeader key={t} label={`${typeConfig[t].icon} ${typeConfig[t].label}`} sub="28 derniers jours" />
+            ))}
           </div>
         </div>
 
@@ -385,8 +413,9 @@ function VueStats({ eglises, stats, chargement, onEditer }) {
             <LigneStats
               key={eglise.id}
               eglise={eglise}
-              stat={stats[eglise.id] || { visites28j: 0, vuesPoi28j: 0, delta: null, deltaVues: null }}
+              stat={stats[eglise.id] || { visites28j: 0, vuesPoi28j: {}, delta: null, deltaVues: {} }}
               onEditer={() => onEditer(eglise.id)}
+              onTogglePause={onTogglePause}
             />
           ))}
           {!chargement && eglisesFiltrees.length === 0 && (
@@ -400,6 +429,21 @@ function VueStats({ eglises, stats, chargement, onEditer }) {
   )
 }
 
+const BADGE_STATUT = {
+  'publié':    { bg: '#D1FAE5', color: '#059669', label: 'Publié' },
+  'pause':     { bg: '#DBEAFE', color: '#2563EB', label: 'En pause' },
+  'brouillon': { bg: '#FEF3C7', color: '#D97706', label: 'Brouillon' },
+}
+
+function BadgeStatut({ statut }) {
+  const s = BADGE_STATUT[statut] || BADGE_STATUT['brouillon']
+  return (
+    <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: s.bg, color: s.color }}>
+      {s.label}
+    </span>
+  )
+}
+
 function ColHeader({ label, sub }) {
   return (
     <div style={{ minWidth: 140 }}>
@@ -409,8 +453,7 @@ function ColHeader({ label, sub }) {
   )
 }
 
-function LigneStats({ eglise, stat, onEditer }) {
-  const publie = eglise.statut === 'publié'
+function LigneStats({ eglise, stat, onEditer, onTogglePause }) {
   const { visites28j, vuesPoi28j, delta, deltaVues } = stat
   const [enSuppression, setEnSuppression] = useState(false)
 
@@ -448,17 +491,13 @@ function LigneStats({ eglise, stat, onEditer }) {
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0 }}>
-          <span style={{
-            fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
-            background: publie ? C.vertClair : '#FEF3C7',
-            color: publie ? C.vert : '#D97706',
-          }}>
-            {publie ? 'Publié' : 'Brouillon'}
-          </span>
+          <BadgeStatut statut={eglise.statut} />
           <ActionBarEglise
             onInspecter={e => { e.stopPropagation(); onEditer() }}
             onSupprimer={supprimerEglise}
             enSuppression={enSuppression}
+            onTogglePause={eglise.statut !== 'brouillon' ? e => { e.stopPropagation(); onTogglePause(eglise.id, eglise.statut) } : null}
+            estEnPause={eglise.statut === 'pause'}
           />
         </div>
       </div>
@@ -466,7 +505,9 @@ function LigneStats({ eglise, stat, onEditer }) {
       {/* Partie droite — stats alignées */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '0 32px', gap: 32 }}>
         <StatChiffre valeur={visites28j} delta={delta} />
-        <StatChiffre valeur={vuesPoi28j} delta={deltaVues} />
+        {TYPES_POI.map(t => (
+          <StatChiffre key={t} valeur={vuesPoi28j?.[t] || 0} delta={deltaVues?.[t] ?? null} />
+        ))}
       </div>
     </div>
   )
@@ -512,8 +553,7 @@ function MiniPhoto({ eglise }) {
   )
 }
 
-function LigneEglise({ eglise, selectionnee, onSelectionner, onEditer }) {
-  const publie = eglise.statut === 'publié'
+function LigneEglise({ eglise, selectionnee, onSelectionner, onEditer, onTogglePause }) {
   const [enSuppression, setEnSuppression] = useState(false)
 
   async function supprimerEglise(e) {
@@ -549,17 +589,13 @@ function LigneEglise({ eglise, selectionnee, onSelectionner, onEditer }) {
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
-        <span style={{
-          fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
-          background: publie ? '#D1FAE5' : '#FEF3C7',
-          color: publie ? C.vert : '#D97706',
-        }}>
-          {publie ? 'Publié' : 'Brouillon'}
-        </span>
+        <BadgeStatut statut={eglise.statut} />
         <ActionBarEglise
           onInspecter={e => { e.stopPropagation(); onEditer() }}
           onSupprimer={supprimerEglise}
           enSuppression={enSuppression}
+          onTogglePause={eglise.statut !== 'brouillon' ? e => { e.stopPropagation(); onTogglePause(eglise.id, eglise.statut) } : null}
+          estEnPause={eglise.statut === 'pause'}
         />
       </div>
     </div>
@@ -567,7 +603,7 @@ function LigneEglise({ eglise, selectionnee, onSelectionner, onEditer }) {
 }
 
 // Action bar réutilisable pour stats/carte
-function ActionBarEglise({ onInspecter, onSupprimer, enSuppression, colorInspect = C.primaire, colorDelete = '#dc2626' }) {
+function ActionBarEglise({ onInspecter, onSupprimer, enSuppression, onTogglePause, estEnPause, colorInspect = C.primaire, colorDelete = '#dc2626' }) {
   return (
     <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
       <button
@@ -582,6 +618,24 @@ function ActionBarEglise({ onInspecter, onSupprimer, enSuppression, colorInspect
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       </button>
+      {onTogglePause && (
+        <button
+          onClick={onTogglePause}
+          title={estEnPause ? 'Republier' : 'Mettre en pause'}
+          style={{
+            background: 'none', border: 'none', padding: 0, margin: 0,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 28, height: 28, borderRadius: '50%', color: '#2563EB',
+            transition: 'background 0.15s',
+          }}
+        >
+          {estEnPause ? (
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+          )}
+        </button>
+      )}
       <button
         onClick={onSupprimer}
         disabled={enSuppression}

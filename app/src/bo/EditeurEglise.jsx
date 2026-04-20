@@ -963,6 +963,7 @@ function OngletEvenements({ form, onChange }) {
 function OngletStatistiques({ form, stats, statsRange, onChangeRange, onRefresh }) {
   const calendarConfigured = !!(form.google_calendar_id || '').trim()
   const publie = form.statut === 'publié'
+  const enPause = form.statut === 'pause'
   const maxValue = Math.max(...stats.serie.map(p => p.value), 1)
 
   return (
@@ -980,8 +981,8 @@ function OngletStatistiques({ form, stats, statsRange, onChangeRange, onRefresh 
 
         <Carte>
           <p style={{ margin: 0, fontSize: 12, color: C.texteSecondaire }}>Publication</p>
-          <p style={{ margin: '12px 0 0', fontSize: 18, fontWeight: 700, color: publie ? '#059669' : '#D97706' }}>
-            {publie ? 'Publié' : 'Brouillon'}
+          <p style={{ margin: '12px 0 0', fontSize: 18, fontWeight: 700, color: publie ? '#059669' : enPause ? '#2563EB' : '#D97706' }}>
+            {publie ? 'Publié' : enPause ? 'En pause' : 'Brouillon'}
           </p>
         </Carte>
 
@@ -1246,13 +1247,14 @@ function Select({ valeur, onChange, options }) {
 
 function Badge({ statut }) {
   const publie = statut === 'publié'
+  const enPause = statut === 'pause'
   return (
     <span style={{
       padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,
-      background: publie ? '#D1FAE5' : '#FEF3C7',
-      color: publie ? '#059669' : '#D97706',
+      background: publie ? '#D1FAE5' : enPause ? '#DBEAFE' : '#FEF3C7',
+      color: publie ? '#059669' : enPause ? '#2563EB' : '#D97706',
     }}>
-      {publie ? '● Publié' : '○ Brouillon'}
+      {publie ? '● Publié' : enPause ? '⏸ En pause' : '○ Brouillon'}
     </span>
   )
 }
