@@ -146,13 +146,9 @@
 |---|---|
 | Surveillance & monitoring (uptime, alertes) | inclus |
 | Mises à jour de sécurité (dépendances, patches) | inclus |
-| Mises à jour stores (iOS + Android — nouvelles versions OS) | inclus |
-| Correction de bugs post-garantie (jusqu'à 2h/mois) | inclus |
-| Petites évolutions UX/contenu (jusqu'à 2h/mois) | inclus |
-| **Forfait TMA de base** | **300€ HT/mois** |
+| Correction de bugs post-garantie (jusqu'à 1h/mois) | inclus |
+| **Forfait TMA de base** | **100€ HT/mois** |
 | Heures supplémentaires (au-delà du forfait) | 62.5€/h |
-
-> **Note** : le forfait TMA inclut le suivi des mises à jour stores (Apple et Google imposent des resoumissions régulières pour les apps natives). Ce poste n'existait pas avec une web app.
 
 ---
 
