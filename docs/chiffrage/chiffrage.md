@@ -13,12 +13,12 @@
 | Ateliers client (plan, POI, droits, événements...) | 8h | 8h |
 | Architecture & choix techniques | 4h | 1h |
 | *Sous-total* | *12h* | *9h* |
-| **Backend — Supabase Edge Functions** | | |
+| **Backend — Supabase (BDD + Edge Functions)** | | |
 | Setup projet, BDD, auth (rôles super_admin / editeur_1visible) | 6h | 1h |
-| API églises (CRUD, géolocalisation, photo façade Wikimedia) | 4h | 1h |
+| BDD + requêtes Supabase — églises (géolocalisation, photo façade Wikimedia) | 4h | 1h |
 | Footprint OSM (Overpass) + rotation + ajustement manuel angle | 12h | 3h |
 | Upload plan photo (override OSM) | 4h | 30min |
-| API POI (CRUD, positionnement, upload photo Cloudinary) | 4h | 1h |
+| BDD + requêtes Supabase — POI (positionnement, upload photo Cloudinary) | 4h | 1h |
 | Intégration Google Calendar (lecture événements) | 4h | 1h |
 | Génération QR Code + deep link config (apple-app-site-association + assetlinks.json) | 4h | 2h |
 | Stats — endpoint POST /stats/view + agrégations dashboard | 6h | 1h |
@@ -134,6 +134,7 @@
 | Traduction automatique fiches POI (Claude API — batch) | 8h | 2h | 125€ HT |
 | Audio guide — ElevenLabs ou Grok Aurora (voix IA réaliste, MP3 stocké Cloudinary) | 8h | 3h | 150€ HT |
 | Pipeline Fastlane — langues supplémentaires (screenshots + upload stores) | 8h | 4h | 250€ HT |
+| Connexion calendrier Enoria (spec interface à confirmer) | 8h | 4h | 250€ HT |
 
 ---
 

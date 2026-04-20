@@ -66,14 +66,21 @@
 
 ## Application mobile
 
-6. **App native confirmée**
+6. **App native ou web app ?**
 
-   ✅ **Décision** : application native Flutter, publiée sur l'Apple Store et le Google Play Store. L'expérience web responsive (ex. Trinité-des-Monts) n'est pas satisfaisante — le client veut l'effet app.
+   ⚠️ **À reconfirmer** : le client semble désormais parler d'une web app uniquement — à clarifier explicitement.
+
+   Décision initiale (à valider) : application native Flutter, publiée sur l'Apple Store et le Google Play Store. L'expérience web responsive (ex. Trinité-des-Monts) n'est pas satisfaisante — le client voulait l'effet app.
 
    QR Code → deep link Universal Links / App Links :
    - App installée → ouvre directement l'église dans l'app native
    - App non installée → Flutter Web dans le navigateur (visite complète) + bannière de téléchargement de l'app
    - Un seul codebase Flutter : iOS, Android, Web
+
+   **Impact si web only :**
+   - Économie ~11h avec IA (~700€ HT) + comptes développeurs Apple/Google non nécessaires
+   - Limitations Flutter Web à anticiper : audio TTS, performance carte, pas de PWA install natif
+   - À trancher avant de finaliser le chiffrage
 
 ## Volumétrie
 
