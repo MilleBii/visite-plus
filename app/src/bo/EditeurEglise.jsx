@@ -1,6 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabaseClient'
 import OngletPlan from './OngletPlan'
+
+function slugify(str) {
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/[\s-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
 
 const C = {
   primaire: '#1B4332',
@@ -62,6 +73,7 @@ function formatAxisLabel(label) {
 
 export default function EditeurEglise({ egliseId, onRetour }) {
   const [onglet, setOnglet] = useState('informations')
+  const [etape, setEtape] = useState(egliseId ? 'edition' : 'recherche')
   const [recherche, setRecherche] = useState('')
   const [resultats, setResultats] = useState([])
   const [rechercheActive, setRechercheActive] = useState(false)
@@ -108,6 +120,31 @@ export default function EditeurEglise({ egliseId, onRetour }) {
     statut: 'brouillon',
   })
 
+  const slugEstAuto = useRef(!egliseId)
+  const [slugEtat, setSlugEtat] = useState(null) // null | 'checking' | 'ok' | 'pris' | 'invalide'
+
+  // Auto-génération du slug depuis nom + ville
+  useEffect(() => {
+    if (!slugEstAuto.current) return
+    const auto = slugify([form.nom, form.ville].filter(Boolean).join('-'))
+    setForm(f => ({ ...f, slug: auto }))
+  }, [form.nom, form.ville])
+
+  // Validation format + unicité
+  useEffect(() => {
+    const s = form.slug
+    if (!s) { setSlugEtat(null); return }
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(s)) { setSlugEtat('invalide'); return }
+    setSlugEtat('checking')
+    const timer = setTimeout(async () => {
+      let q = supabase.from('eglises').select('id', { head: true, count: 'exact' }).eq('slug', s)
+      if (egliseSelectionnee) q = q.neq('id', egliseSelectionnee)
+      const { count } = await q
+      setSlugEtat(count > 0 ? 'pris' : 'ok')
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [form.slug, egliseSelectionnee])
+
 
   useEffect(() => {
     if (egliseSelectionnee) chargerEglise(egliseSelectionnee)
@@ -125,7 +162,7 @@ export default function EditeurEglise({ egliseId, onRetour }) {
     setRechercheActive(true)
     supabase
       .from('eglises')
-      .select('id, nom, ville')
+      .select('id, nom, ville, photo_facade')
       .ilike('nom', `%${recherche}%`)
       .order('nom')
       .then(({ data }) => {
@@ -320,13 +357,14 @@ export default function EditeurEglise({ egliseId, onRetour }) {
       statut: publier ? 'publié' : form.statut,
     }
 
-    const { error } = egliseId
-      ? await supabase.from('eglises').update(donnees).eq('id', egliseId)
-      : await supabase.from('eglises').insert(donnees)
+    const { data: retour, error } = egliseSelectionnee
+      ? await supabase.from('eglises').update(donnees).eq('id', egliseSelectionnee).select('id').single()
+      : await supabase.from('eglises').insert(donnees).select('id').single()
 
     if (error) {
       setErreur(error.message)
     } else {
+      if (!egliseSelectionnee && retour?.id) setEgliseSelectionnee(retour.id)
       if (publier) champ('statut', 'publié')
       setSucces(true)
       setTimeout(() => setSucces(false), 2500)
@@ -358,6 +396,133 @@ export default function EditeurEglise({ egliseId, onRetour }) {
     setRecherchePhoto(false)
   }
 
+  const [uploadPhoto, setUploadPhoto] = useState(false)
+
+  async function uploaderPhoto(fichier) {
+    if (!fichier) return
+    const ext = fichier.name.split('.').pop()
+    const chemin = `facades/${egliseSelectionnee || `new-${Date.now()}`}.${ext}`
+    setUploadPhoto(true)
+    setErreur(null)
+    const { error: uploadErr } = await supabase.storage
+      .from('poi-photos')
+      .upload(chemin, fichier, { upsert: true, contentType: fichier.type })
+    if (uploadErr) {
+      setErreur(`Erreur upload : ${uploadErr.message}`)
+      setUploadPhoto(false)
+      return
+    }
+    const { data } = supabase.storage.from('poi-photos').getPublicUrl(chemin)
+    champ('photo_facade', data.publicUrl)
+    setUploadPhoto(false)
+  }
+
+  if (etape === 'recherche') {
+    return (
+      <div style={{ minHeight: '100vh', background: C.bg, fontFamily: 'system-ui, -apple-system, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0 }}>
+        <button onClick={onRetour} style={{ position: 'absolute', top: 20, left: 20, background: 'none', border: 'none', color: C.texteSecondaire, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+          ← Retour
+        </button>
+        <div style={{ background: C.blanc, borderRadius: 12, border: `1px solid ${C.bordure}`, padding: '40px 36px', width: 480, boxShadow: '0 4px 24px rgba(0,0,0,0.07)' }}>
+          <h2 style={{ margin: '0 0 6px', fontSize: 22, fontWeight: 700, color: '#111827' }}>Nouvelle église</h2>
+          <p style={{ margin: '0 0 24px', fontSize: 14, color: C.texteSecondaire }}>Recherchez d'abord si l'église existe déjà, ou créez-en une nouvelle.</p>
+
+          <div style={{ position: 'relative' }}>
+            <input
+              autoFocus
+              value={recherche}
+              onChange={e => setRecherche(e.target.value)}
+              placeholder="Rechercher par nom (ex : Saint-Sulpice)…"
+              style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: `1px solid ${C.bordure}`, fontSize: 14, background: C.bg, boxSizing: 'border-box', outline: 'none' }}
+            />
+            {(rechercheActive || rechercheExterneActive) && (
+              <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: C.texteSecondaire }}>
+                {rechercheActive ? 'Recherche locale…' : 'Internet…'}
+              </span>
+            )}
+            {(resultats.length > 0 || resultatsExternes.length > 0) && (
+              <div style={{ background: C.blanc, border: `1px solid ${C.bordure}`, borderRadius: 8, position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 10, maxHeight: 280, overflowY: 'auto', boxShadow: '0 4px 16px rgba(0,0,0,0.10)' }}>
+                {resultats.length > 0 && (
+                  <div style={{ padding: '6px 12px 2px', fontSize: 11, color: C.texteSecondaire, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Déjà dans Visite+</div>
+                )}
+                {resultats.map(e => (
+                  <div
+                    key={e.id}
+                    onClick={() => { setEgliseSelectionnee(e.id); setRecherche(''); setResultats([]); setResultatsExternes([]); setEtape('edition') }}
+                    style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: `1px solid ${C.bordure}`, fontSize: 14, color: '#111827', display: 'flex', alignItems: 'center', gap: 10 }}
+                    onMouseEnter={ev => ev.currentTarget.style.background = C.bg}
+                    onMouseLeave={ev => ev.currentTarget.style.background = ''}
+                  >
+                    <div style={{ width: 40, height: 40, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {e.photo_facade
+                        ? <img src={e.photo_facade} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <span style={{ fontSize: 18 }}>⛪</span>
+                      }
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 500 }}>{e.nom}</div>
+                      <div style={{ color: C.texteSecondaire, fontSize: 12 }}>{e.ville}</div>
+                    </div>
+                  </div>
+                ))}
+                {resultatsExternes.length > 0 && (
+                  <div style={{ padding: '6px 12px 2px', fontSize: 11, color: C.texteSecondaire, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Depuis Wikidata</div>
+                )}
+                {resultatsExternes.map(e => {
+                  const photoUrl = e.image ? `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(e.image)}?width=80` : null
+                  return (
+                    <div
+                      key={e.id}
+                      onClick={() => {
+                        setRecherche(''); setResultats([]); setResultatsExternes([]);
+                        setForm(f => ({
+                          ...f,
+                          nom: e.nom || '',
+                          ville: e.ville || '',
+                          lat: e.coord ? e.coord.latitude : '',
+                          lon: e.coord ? e.coord.longitude : '',
+                          photo_facade: e.image ? `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(e.image)}` : '',
+                        }))
+                        setEtape('edition')
+                      }}
+                      style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: `1px solid ${C.bordure}`, fontSize: 14, color: '#111827', display: 'flex', alignItems: 'center', gap: 10 }}
+                      onMouseEnter={ev => ev.currentTarget.style.background = '#e0f2fe'}
+                      onMouseLeave={ev => ev.currentTarget.style.background = ''}
+                    >
+                      <div style={{ width: 40, height: 40, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {photoUrl
+                          ? <img src={photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : <span style={{ fontSize: 18 }}>🌐</span>
+                        }
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 500 }}>{e.nom}</div>
+                        <div style={{ color: C.texteSecondaire, fontSize: 12 }}>{e.ville || 'Wikidata'}</div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0' }}>
+            <div style={{ flex: 1, height: 1, background: C.bordure }} />
+            <span style={{ fontSize: 12, color: C.texteSecondaire }}>ou</span>
+            <div style={{ flex: 1, height: 1, background: C.bordure }} />
+          </div>
+
+          <button
+            onClick={() => setEtape('edition')}
+            style={{ width: '100%', padding: '10px 0', borderRadius: 8, border: `1px solid ${C.primaire}`, background: C.blanc, color: C.primaire, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+          >
+            Créer une nouvelle église vide
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (chargement) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: C.bg }}>
@@ -368,54 +533,6 @@ export default function EditeurEglise({ egliseId, onRetour }) {
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-
-      {/* Barre de recherche d'église : visible uniquement si création */}
-      {!egliseId && (
-        <div style={{ background: C.blanc, borderBottom: `1px solid ${C.bordure}`, padding: '18px 24px 10px', display: 'flex', alignItems: 'center', gap: 16, position: 'relative' }}>
-          <input
-            value={recherche}
-            onChange={e => setRecherche(e.target.value)}
-            placeholder="Rechercher une église par nom..."
-            style={{ width: 320, padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.bordure}`, fontSize: 14, background: C.bg }}
-          />
-          {rechercheActive && <span style={{ fontSize: 13, color: C.texteSecondaire }}>Recherche locale…</span>}
-          {rechercheExterneActive && <span style={{ fontSize: 13, color: C.texteSecondaire }}>Recherche internet…</span>}
-          {(resultats.length > 0 || resultatsExternes.length > 0) && (
-            <div style={{ background: C.bg, border: `1px solid ${C.bordure}`, borderRadius: 8, position: 'absolute', top: 44, left: 0, zIndex: 10, minWidth: 320, maxHeight: 260, overflowY: 'auto' }}>
-              {resultats.map(e => (
-                <div
-                  key={e.id}
-                  onClick={() => { setEgliseSelectionnee(e.id); setRecherche(''); setResultats([]); setResultatsExternes([]) }}
-                  style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: `1px solid ${C.bordure}`, fontSize: 14, background: e.id === egliseSelectionnee ? C.primaire : 'inherit', color: e.id === egliseSelectionnee ? '#fff' : '#111827' }}
-                >
-                  {e.nom} <span style={{ color: C.texteSecondaire, fontSize: 12 }}>({e.ville})</span>
-                </div>
-              ))}
-              {resultatsExternes.map(e => (
-                <div
-                  key={e.id}
-                  onClick={() => {
-                    setRecherche(''); setResultats([]); setResultatsExternes([]);
-                    // Remplir le formulaire avec les infos externes
-                    setForm(f => ({
-                      ...f,
-                      nom: e.nom || '',
-                      ville: e.ville || '',
-                      lat: e.coord ? e.coord.latitude : '',
-                      lon: e.coord ? e.coord.longitude : '',
-                      photo_facade: e.image ? `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(e.image)}` : '',
-                    }))
-                  }}
-                  style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: `1px solid ${C.bordure}`, fontSize: 14, background: '#e0f2fe', color: '#111827' }}
-                >
-                  🌐 {e.nom} {e.ville && <span style={{ color: C.texteSecondaire, fontSize: 12 }}>({e.ville})</span>}
-                  {e.image && <span style={{ marginLeft: 8, fontSize: 12, color: C.texteSecondaire }}>🖼️</span>}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Header */}
       <div style={{ background: C.primaire, color: '#fff', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 56 }}>
@@ -446,20 +563,28 @@ export default function EditeurEglise({ egliseId, onRetour }) {
 
       {/* Onglets */}
       <div style={{ background: C.blanc, borderBottom: `1px solid ${C.bordure}`, display: 'flex', paddingLeft: 24, gap: 0 }}>
-        {ONGLETS.map(o => (
-          <button key={o.id} onClick={() => setOnglet(o.id)} style={{
-            padding: '13px 18px',
-            background: 'none', border: 'none',
-            borderBottom: onglet === o.id ? `2px solid ${C.primaire}` : '2px solid transparent',
-            color: onglet === o.id ? C.primaire : C.texteSecondaire,
-            cursor: 'pointer',
-            fontWeight: onglet === o.id ? 600 : 400,
-            fontSize: 14,
-            transition: 'color 0.15s',
-          }}>
-            {o.label}
-          </button>
-        ))}
+        {ONGLETS.map(o => {
+          const bloque = o.id !== 'informations' && !egliseSelectionnee
+          return (
+            <button
+              key={o.id}
+              onClick={() => !bloque && setOnglet(o.id)}
+              title={bloque ? 'Enregistrez d\'abord les informations' : undefined}
+              style={{
+                padding: '13px 18px',
+                background: 'none', border: 'none',
+                borderBottom: onglet === o.id ? `2px solid ${C.primaire}` : '2px solid transparent',
+                color: bloque ? '#D1D5DB' : onglet === o.id ? C.primaire : C.texteSecondaire,
+                cursor: bloque ? 'not-allowed' : 'pointer',
+                fontWeight: onglet === o.id ? 600 : 400,
+                fontSize: 14,
+                transition: 'color 0.15s',
+              }}
+            >
+              {o.label}
+            </button>
+          )
+        })}
       </div>
 
       {/* Notifications */}
@@ -479,9 +604,13 @@ export default function EditeurEglise({ egliseId, onRetour }) {
             onChange={champ}
             onRechercherPhoto={rechercherPhotoWikimedia}
             recherchePhoto={recherchePhoto}
+            slugEtat={slugEtat}
+            onSlugChange={v => { slugEstAuto.current = false; champ('slug', v) }}
+            onUploadPhoto={uploaderPhoto}
+            uploadPhoto={uploadPhoto}
           />
         )}
-        {onglet === 'plan' && <OngletPlan egliseId={egliseId} />}
+        {onglet === 'plan' && <OngletPlan egliseId={egliseSelectionnee} />}
         {onglet === 'statistiques' && (
           <OngletStatistiques
             form={form}
@@ -513,7 +642,37 @@ export default function EditeurEglise({ egliseId, onRetour }) {
 
 // ─── Onglet Informations ──────────────────────────────────────────────────────
 
-function OngletInformations({ form, onChange, onRechercherPhoto, recherchePhoto }) {
+async function resoudreUrlPhoto(url) {
+  const match = url.match(/commons\.wikimedia\.org\/wiki\/File:(.+)/)
+  if (!match) return url
+  const titre = decodeURIComponent(match[1])
+  const res = await fetch(`https://commons.wikimedia.org/w/api.php?action=query&titles=File:${encodeURIComponent(titre)}&prop=imageinfo&iiprop=url&format=json&origin=*`)
+  const json = await res.json()
+  const pages = Object.values(json?.query?.pages || {})
+  return pages[0]?.imageinfo?.[0]?.url || url
+}
+
+function OngletInformations({ form, onChange, onRechercherPhoto, recherchePhoto, slugEtat, onSlugChange, onUploadPhoto, uploadPhoto }) {
+  const inputFichierRef = useRef(null)
+  const [saisieUrl, setSaisieUrl] = useState(false)
+  const [resolutionUrl, setResolutionUrl] = useState(false)
+
+  async function confirmerUrl(valeur) {
+    const url = valeur.trim()
+    if (!url) return
+    setResolutionUrl(true)
+    const directe = await resoudreUrlPhoto(url)
+    onChange('photo_facade', directe)
+    setSaisieUrl(false)
+    setResolutionUrl(false)
+  }
+
+  const slugIndicateur = {
+    checking: { couleur: C.texteSecondaire, icone: '…', texte: 'Vérification…' },
+    ok:       { couleur: C.succes,          icone: '✓', texte: 'Disponible' },
+    pris:     { couleur: C.danger,          icone: '✗', texte: 'Déjà utilisé' },
+    invalide: { couleur: C.danger,          icone: '✗', texte: 'Caractères invalides (minuscules, chiffres et tirets uniquement)' },
+  }[slugEtat] || null
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'start' }}>
 
@@ -538,7 +697,14 @@ function OngletInformations({ form, onChange, onRechercherPhoto, recherchePhoto 
             </Champ>
           </div>
           <Champ label="Slug URL" hint={`visite-plus.fr/eglise/${form.slug || '{slug}'}`}>
-            <Input valeur={form.slug} onChange={v => onChange('slug', v)} placeholder="ex : saint-sulpice-paris" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Input valeur={form.slug} onChange={onSlugChange} placeholder="ex : saint-sulpice-paris" />
+              {slugIndicateur && (
+                <span style={{ fontSize: 12, color: slugIndicateur.couleur, whiteSpace: 'nowrap', fontWeight: 500 }}>
+                  {slugIndicateur.icone} {slugIndicateur.texte}
+                </span>
+              )}
+            </div>
           </Champ>
         </Carte>
 
@@ -594,13 +760,59 @@ function OngletInformations({ form, onChange, onRechercherPhoto, recherchePhoto 
             {recherchePhoto ? 'Recherche en cours…' : '🔍 Rechercher sur Wikimedia Commons'}
           </button>
 
-          <button style={{
-            width: '100%', padding: '8px 0', borderRadius: 6,
-            border: `1px solid ${C.bordure}`, background: C.blanc,
-            cursor: 'pointer', fontSize: 13, color: '#374151',
-          }}>
-            ⬆️ Uploader une photo
+          <input
+            ref={inputFichierRef}
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={e => { if (e.target.files?.[0]) onUploadPhoto(e.target.files[0]); e.target.value = '' }}
+          />
+          <button
+            onClick={() => inputFichierRef.current?.click()}
+            disabled={uploadPhoto}
+            style={{
+              width: '100%', padding: '8px 0', borderRadius: 6,
+              border: `1px solid ${C.bordure}`, background: C.blanc,
+              cursor: uploadPhoto ? 'wait' : 'pointer', fontSize: 13, color: '#374151',
+              marginBottom: 8, opacity: uploadPhoto ? 0.6 : 1,
+            }}
+          >
+            {uploadPhoto ? 'Upload en cours…' : '⬆️ Uploader une photo'}
           </button>
+
+          <button
+            onClick={() => setSaisieUrl(v => !v)}
+            style={{
+              width: '100%', padding: '8px 0', borderRadius: 6,
+              border: `1px solid ${C.bordure}`, background: saisieUrl ? C.bg : C.blanc,
+              cursor: 'pointer', fontSize: 13, color: '#374151', marginBottom: saisieUrl ? 8 : 0,
+            }}
+          >
+            🔗 Coller une URL
+          </button>
+
+          {saisieUrl && (
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input
+                autoFocus
+                type="url"
+                placeholder="https://… ou commons.wikimedia.org/wiki/File:…"
+                defaultValue={form.photo_facade}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') confirmerUrl(e.target.value)
+                  if (e.key === 'Escape') setSaisieUrl(false)
+                }}
+                style={{ flex: 1, padding: '7px 10px', borderRadius: 6, border: `1px solid ${C.bordure}`, fontSize: 13, outline: 'none' }}
+              />
+              <button
+                onClick={e => confirmerUrl(e.currentTarget.previousSibling.value)}
+                disabled={resolutionUrl}
+                style={{ padding: '7px 12px', borderRadius: 6, border: 'none', background: C.primaire, color: '#fff', fontSize: 13, cursor: resolutionUrl ? 'wait' : 'pointer', opacity: resolutionUrl ? 0.6 : 1 }}
+              >
+                {resolutionUrl ? '…' : 'OK'}
+              </button>
+            </div>
+          )}
 
           {form.photo_facade && (
             <button
