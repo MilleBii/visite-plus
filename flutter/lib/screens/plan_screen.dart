@@ -422,14 +422,14 @@ class _PlanView extends StatelessWidget {
           final cfg = getPoiConfig(poi.type);
           final isSelected = poiSelectionne?.id == poi.id;
           return Positioned(
-            left: pos.dx - 20,
-            top: pos.dy - 20,
+            left: pos.dx - 18,
+            top: pos.dy - 18,
             child: GestureDetector(
               onTap: () => onPoiTap(poi),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
-                width: 40,
-                height: 40,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: isSelected ? cfg.color : Colors.white,
                   shape: BoxShape.circle,
@@ -441,7 +441,7 @@ class _PlanView extends StatelessWidget {
                 child: Center(
                   child: Text(
                     cfg.emoji,
-                    style: TextStyle(fontSize: isSelected ? 16 : 14),
+                    style: TextStyle(fontSize: isSelected ? 15 : 13),
                   ),
                 ),
               ),

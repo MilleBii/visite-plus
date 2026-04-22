@@ -25,12 +25,12 @@ class EvenementTypeConfig {
 const Map<String, PoiTypeConfig> poiTypeConfig = {
   'vitrail': PoiTypeConfig(
     color: Color(0xFF3B82F6),
-    emoji: '🪟',
+    emoji: '💠',
     icon: Icons.window,
   ),
   'statue': PoiTypeConfig(
     color: Color(0xFF8B5CF6),
-    emoji: '🗿',
+    emoji: '👼',
     icon: Icons.person_outline,
   ),
   'tableau': PoiTypeConfig(
