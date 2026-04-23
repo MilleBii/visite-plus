@@ -32,7 +32,8 @@
 | Génération QR Code + page impression A4 | 4h | 30min |
 | Gestion des utilisateurs (super_admin) | 4h | 30min |
 | Dashboard stats (courbe fréquentation + classement POI) | 8h | 1h |
-| *Sous-total* | *38h* | *7h30* |
+| Gestion des dons BO (config + suivi — Hello Asso ou Enoria) | 2h | 1h |
+| *Sous-total* | *40h* | *8h30* |
 | **App Flutter — iOS + Android + Web** | | |
 | Setup projet Flutter (iOS + Android + Web targets) | 4h | 1h |
 | Carte d'accueil (flutter_map + markers types + géoloc) | 8h | 3h |
@@ -44,7 +45,8 @@
 | Fiche POI courte + fiche complète (sections dépliables) | 4h | 30min |
 | Section "Au programme" (Google Calendar) | 4h | 1h |
 | Audio guide TTS natif (flutter_tts — lecture des textes POI) | 2h | 1h |
-| *Sous-total* | *44h* | *13h* |
+| Faire un don (Hello Asso ou Enoria — partenaire à confirmer) | 4h | 4h |
+| *Sous-total* | *48h* | *17h* |
 | **Gestion diocèse / paroisse / clocher** | | |
 | Ateliers client (trancher les 5 questions) | 4h | 4h |
 | Modélisation BDD (diocèse/paroisse/affiliation) + migration | 4h | 1h |
@@ -70,15 +72,15 @@
 |---|---|---|
 | Cadrage & Ateliers clients | 12h | 9h |
 | Backend (Edge Functions) | 44h | 10h30 |
-| Back Office (React) | 38h | 7h30 |
-| App Flutter | 44h | 13h |
+| Back Office (React) | 40h | 8h30 |
+| App Flutter | 48h | 17h |
 | Diocèse / paroisse / clocher | 38h | 11h |
 | Déploiement | 24h | 17h |
-| **Base** | **200h** | **68h** |
-| Marge imprévus (20%) | 40h | 14h |
-| **Total facturable** | **240h** | **82h** |
-| **Honoraires à 62.5€/h** | **15 000€ HT** | **5 125€ HT** |
-| **Arrondi commercial** | **15 000€ HT** | **5 000€ HT** |
+| **Base** | **206h** | **73h** |
+| Marge imprévus (20%) | 41h | 15h |
+| **Total facturable** | **247h** | **88h** |
+| **Honoraires à 62.5€/h** | **15 437€ HT** | **5 500€ HT** |
+| **Arrondi commercial** | **15 500€ HT** | **5 000€ HT** |
 
 ---
 
@@ -131,7 +133,6 @@
 
 | Option | Sans IA | Avec IA | Honoraires |
 |---|---|---|---|
-| Traduction automatique fiches POI (Claude API — batch) | 8h | 2h | 125€ HT |
 | Audio guide — ElevenLabs ou Grok Aurora (voix IA réaliste, MP3 stocké Cloudinary) | 8h | 3h | 150€ HT |
 | Pipeline Fastlane — langues supplémentaires (screenshots + upload stores) | 8h | 4h | 250€ HT |
 | Connexion calendrier Enoria (spec interface à confirmer) | 8h | 4h | 250€ HT |
@@ -163,9 +164,9 @@
 |---|---|---|---|
 | Firebase Hosting (Flutter Web + BO statique) | 0€ | 0€ | 0€ |
 | Supabase (PostgreSQL + Edge Functions + auth) | 0€ (free) | 25€ | 25€ |
-| Cloudinary (images CDN) | 0€ (free) | 0€ (free) | 89€* |
+| Cloudinary (images CDN) | 0€ (free) | 0€ (free) | 0€ (free) |
 | Tuiles carte (Stadia Maps / Jawg) | 0€ (free, ~200K tuiles/mois) | 0-20€ (~450K tuiles/mois) | ~30€ (~1,5M tuiles/mois) |
-| **Total/mois** | **0€** | **~25-45€** | **~144€** |
+| **Total/mois** | **0€** | **~25-45€** | **~55€** |
 
 *Cloudinary free tier (25 Go) couvre ~500 sites à 10 photos. Au-delà : plan payant ~89€/mois.
 

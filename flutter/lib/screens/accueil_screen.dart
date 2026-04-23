@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +6,7 @@ import '../models/eglise.dart';
 import '../services/supabase_service.dart';
 import '../main.dart';
 import '../l10n/app_localizations.dart';
+import '_store_button.dart';
 
 import 'dart:async';
 
@@ -26,6 +28,28 @@ class _AccueilScreenState extends State<AccueilScreen> {
   void initState() {
     super.initState();
     _loadEglise();
+  }
+
+  Widget _storeButtons() {
+    const appStoreUrl = 'https://apps.apple.com/app/visite-plus/id0000000000';
+    const playStoreUrl = 'https://play.google.com/store/apps/details?id=fr.visite_plus.app';
+
+    final showAppStore = kIsWeb || defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS;
+    final showPlayStore = kIsWeb || defaultTargetPlatform == TargetPlatform.android;
+
+    if (!showAppStore && !showPlayStore) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 24),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (showAppStore) const StoreButton(label: 'App Store', url: appStoreUrl),
+          if (showAppStore && showPlayStore) const SizedBox(width: 16),
+          if (showPlayStore) const StoreButton(label: 'Google Play', url: playStoreUrl),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadEglise() async {
@@ -231,6 +255,7 @@ class _AccueilScreenState extends State<AccueilScreen> {
                       onTap: () => context.push('/eglise/${eglise.safeSlug}/programme'),
                       style: _NavButtonStyle.ghost,
                     ),
+                    _storeButtons(),
                   ],
                 ),
               ),
