@@ -4,7 +4,7 @@
 17 rue de la fontaine — 25660 Saône
 SIREN : 980 578 546
 
-> Établi le 2026-04-23
+> Devis n° RB-2026-001 — v1.0 — Établi le 2026-04-23
 
 ---
 
@@ -103,7 +103,7 @@ Engagement : le montant facturé ne dépassera pas **5 000€ HT**, quelle que s
 
 ## Coûts d'hébergement mensuels (hors honoraires)
 
-> **Hypothèses de volume** : ~10 photos par site (façade + POI), ~500 Ko/photo après compression. 80 % des visiteurs arrivent via QR Code (0 tuile carte chargée), 10 % ouvrent la carte de localisation (~20 tuiles/session). Le plan intérieur est une image locale, aucune tuile externe.
+> **Hypothèses de volume** : 10 photos par site (façade + POI), 500 Ko/photo après compression. 80 % des visiteurs arrivent via QR Code (0 tuile carte chargée), 10 % ouvrent la carte de localisation (≈ 20 tuiles/session). Le plan intérieur est une image locale, aucune tuile externe.
 
 | Poste | Lancement (5 sites) | An 1 (20 sites) | An 3 (80 sites) |
 |---|---|---|---|
