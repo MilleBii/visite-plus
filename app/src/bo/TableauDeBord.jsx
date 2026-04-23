@@ -186,7 +186,12 @@ export default function TableauDeBord({ onEditer, onAjouter }) {
     e.ville.toLowerCase().includes(recherche.toLowerCase())
   )
 
-  const avecPosition = eglises.filter(e => e.position?.length === 2)
+  const avecPosition = eglises.filter(e =>
+    Array.isArray(e.position) &&
+    e.position.length === 2 &&
+    typeof e.position[0] === 'number' &&
+    typeof e.position[1] === 'number'
+  )
   const centreDefaut = avecPosition.length > 0
     ? [
         avecPosition.reduce((s, e) => s + e.position[0], 0) / avecPosition.length,

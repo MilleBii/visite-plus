@@ -609,7 +609,7 @@ export default function OngletPlan({ egliseId }) {
               </Pane>
 
               <Pane name="poiPane" style={{ zIndex: 650 }}>
-                {pois.map(poi => (
+                {pois.filter(poi => Array.isArray(poi.position) && poi.position.length >= 2).map(poi => (
                   <Marker
                     key={poi.id}
                     pane="poiPane"
