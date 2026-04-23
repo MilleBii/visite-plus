@@ -90,6 +90,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get poiTypeDemarche => 'Démarche';
 
   @override
+  String get poiTypeInformation => 'Information';
+
+  @override
+  String get poiTypePriere => 'Prière';
+
+  @override
   String get poiTypeOther => 'Autre';
 
   @override

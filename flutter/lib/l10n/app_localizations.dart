@@ -260,6 +260,18 @@ abstract class AppLocalizations {
   /// **'Démarche'**
   String get poiTypeDemarche;
 
+  /// No description provided for @poiTypeInformation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Information'**
+  String get poiTypeInformation;
+
+  /// No description provided for @poiTypePriere.
+  ///
+  /// In fr, this message translates to:
+  /// **'Prière'**
+  String get poiTypePriere;
+
   /// No description provided for @poiTypeOther.
   ///
   /// In fr, this message translates to:

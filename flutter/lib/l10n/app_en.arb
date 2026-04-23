@@ -35,6 +35,8 @@
   "poiTypeStatue": "Statue",
   "poiTypeTableau": "Painting",
   "poiTypeDemarche": "Practice",
+  "poiTypeInformation": "Information",
+  "poiTypePriere": "Prayer",
   "poiTypeOther": "Other",
 
   "evenementTypeMesse": "Mass",

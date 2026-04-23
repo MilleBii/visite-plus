@@ -173,11 +173,13 @@ class _FichePoiScreenState extends State<FichePoiScreen> {
                         errorWidget: (_, __, ___) => Container(color: const Color(0xFFE7E5E4)),
                       ),
                     )
-                  : Container(
-                      color: const Color(0xFFF5F5F4),
-                      alignment: Alignment.center,
-                      child: Text(cfg.emoji, style: const TextStyle(fontSize: 64)),
-                    ),
+                  : cfg.imagePath.isNotEmpty
+                      ? Image.asset(cfg.imagePath, fit: BoxFit.cover, width: double.infinity, height: double.infinity)
+                      : Container(
+                          color: const Color(0xFFF5F5F4),
+                          alignment: Alignment.center,
+                          child: Text(cfg.emoji, style: const TextStyle(fontSize: 64)),
+                        ),
             ),
           ),
 
@@ -203,7 +205,12 @@ class _FichePoiScreenState extends State<FichePoiScreen> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         padding: const EdgeInsets.all(8),
-                        child: Icon(cfg.icon, color: cfg.color, size: 28),
+                        child: cfg.imagePath.isNotEmpty
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: Image.asset(cfg.imagePath, width: 28, height: 28, fit: BoxFit.cover),
+                              )
+                            : Icon(Icons.place_outlined, color: cfg.color, size: 28),
                       ),
                       const SizedBox(width: 12),
                       Expanded(

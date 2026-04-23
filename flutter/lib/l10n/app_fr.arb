@@ -35,6 +35,8 @@
   "poiTypeStatue": "Statue",
   "poiTypeTableau": "Tableau",
   "poiTypeDemarche": "Démarche",
+  "poiTypeInformation": "Information",
+  "poiTypePriere": "Prière",
   "poiTypeOther": "Autre",
 
   "evenementTypeMesse": "Messe",

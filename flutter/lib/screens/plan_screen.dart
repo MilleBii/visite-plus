@@ -422,28 +422,32 @@ class _PlanView extends StatelessWidget {
           final cfg = getPoiConfig(poi.type);
           final isSelected = poiSelectionne?.id == poi.id;
           return Positioned(
-            left: pos.dx - 18,
-            top: pos.dy - 18,
+            left: pos.dx - 20,
+            top: pos.dy - 20,
             child: GestureDetector(
               onTap: () => onPoiTap(poi),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
-                width: 36,
-                height: 36,
+                width: 40,
+                height: 40,
+                clipBehavior: Clip.hardEdge,
                 decoration: BoxDecoration(
-                  color: isSelected ? cfg.color : Colors.white,
+                  color: cfg.imagePath.isNotEmpty ? cfg.color : (isSelected ? cfg.color : Colors.white),
                   shape: BoxShape.circle,
                   border: Border.all(color: cfg.color, width: 2.5),
                   boxShadow: const [
                     BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
                   ],
                 ),
-                child: Center(
-                  child: Text(
-                    cfg.emoji,
-                    style: TextStyle(fontSize: isSelected ? 15 : 13),
-                  ),
-                ),
+                child: cfg.imagePath.isNotEmpty
+                    ? Center(
+                        child: ClipOval(
+                          child: Image.asset(cfg.imagePath, width: 28, height: 28, fit: BoxFit.cover),
+                        ),
+                      )
+                    : Center(
+                        child: Text(cfg.emoji, style: TextStyle(fontSize: isSelected ? 15 : 13)),
+                      ),
               ),
             ),
           );
@@ -540,16 +544,21 @@ class _Legende extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 20,
-                          height: 20,
+                          width: 24,
+                          height: 24,
+                          clipBehavior: Clip.hardEdge,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: entry.value.imagePath.isNotEmpty ? entry.value.color : Colors.white,
                             shape: BoxShape.circle,
                             border: Border.all(color: entry.value.color, width: 2),
                           ),
-                          child: Center(
-                            child: Text(entry.value.emoji, style: const TextStyle(fontSize: 10)),
-                          ),
+                          child: entry.value.imagePath.isNotEmpty
+                              ? Center(
+                                  child: ClipOval(
+                                    child: Image.asset(entry.value.imagePath, width: 16, height: 16, fit: BoxFit.cover),
+                                  ),
+                                )
+                              : Center(child: Text(entry.value.emoji, style: const TextStyle(fontSize: 10))),
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -628,17 +637,30 @@ class _PanneauPoiBas extends StatelessWidget {
                         ),
                       )
                     else
-                      Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: cfg.color, width: 2.5),
-                        ),
-                        child: Center(
-                          child: Text(cfg.emoji, style: const TextStyle(fontSize: 28)),
-                        ),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: cfg.imagePath.isNotEmpty
+                            ? Container(
+                                width: 72,
+                                height: 72,
+                                color: cfg.color,
+                                alignment: Alignment.center,
+                                child: ClipOval(
+                                  child: Image.asset(cfg.imagePath, width: 56, height: 56, fit: BoxFit.cover),
+                                ),
+                              )
+                            : Container(
+                                width: 72,
+                                height: 72,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: cfg.color, width: 2.5),
+                                ),
+                                child: Center(
+                                  child: Text(cfg.emoji, style: const TextStyle(fontSize: 28)),
+                                ),
+                              ),
                       ),
                     const SizedBox(width: 14),
                     Expanded(

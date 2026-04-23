@@ -49,7 +49,10 @@ export default function FichePoi({ poi, onBack }) {
           padding: '4px 10px', fontSize: '13px', color: '#78716C',
           marginBottom: '10px',
         }}>
-          <span>{cfg.icon}</span>
+          {cfg.image
+            ? <img src={cfg.image} style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }} />
+            : <span>{cfg.icon}</span>
+          }
           <span>{cfg.label}</span>
         </div>
 

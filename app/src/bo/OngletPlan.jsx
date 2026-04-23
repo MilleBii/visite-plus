@@ -94,8 +94,9 @@ function normaliserPolygone(input) {
 function curseurActif(modePlacement, modeRotation) {
   if (modeRotation) return 'grab'
   if (!modePlacement) return 'default'
-  const icon = typeConfig[modePlacement]?.icon || '📍'
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><text y='28' font-size='26'>${icon}</text></svg>`
+  const cfg = typeConfig[modePlacement] || { icon: '📍', color: '#666' }
+  if (cfg.image) return `url("${cfg.image}") 16 16, crosshair`
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><text y='28' font-size='26'>${cfg.icon}</text></svg>`
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 16 28, crosshair`
 }
 
@@ -140,17 +141,21 @@ function rotationPoint(point, centre, angleDeg) {
 
 function creerIcone(type, actif = false) {
   const cfg = typeConfig[type] || { icon: '📍', color: '#666' }
+  const inner = cfg.image
+    ? `<img src="${cfg.image}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;" />`
+    : `<span style="font-size:16px">${cfg.icon}</span>`
   return L.divIcon({
     className: '',
     html: `<div style="
-      background: white; border: ${actif ? '3px' : '2.5px'} solid ${actif ? C.primaire : cfg.color};
-      border-radius: 50%; width: 36px; height: 36px;
+      background: ${cfg.image ? cfg.color : 'white'};
+      border: ${actif ? '2px' : '1.5px'} solid ${actif ? C.primaire : cfg.color};
+      border-radius: 50%; width: 40px; height: 40px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 16px; box-shadow: 0 2px 8px rgba(0,0,0,${actif ? '0.35' : '0.2'});
+      overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,${actif ? '0.35' : '0.2'});
       transform: ${actif ? 'scale(1.2)' : 'scale(1)'};
-    ">${cfg.icon}</div>`,
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
+    ">${inner}</div>`,
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
   })
 }
 
@@ -518,7 +523,10 @@ export default function OngletPlan({ egliseId }) {
                 cursor: 'pointer',
               }}
             >
-              <span>{cfg.icon}</span>
+              {cfg.image
+                ? <img src={cfg.image} style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover', pointerEvents: 'none' }} />
+                : <span>{cfg.icon}</span>
+              }
               <span>+ {cfg.label}</span>
             </button>
           ))}
@@ -650,7 +658,10 @@ export default function OngletPlan({ egliseId }) {
           {/* En-tête panneau */}
           <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.bordure}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 20 }}>{typeConfig[formPoi.type]?.icon}</span>
+              {typeConfig[formPoi.type]?.image
+                ? <img src={typeConfig[formPoi.type].image} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover', pointerEvents: 'none' }} />
+                : <span style={{ fontSize: 20 }}>{typeConfig[formPoi.type]?.icon}</span>
+              }
               <span style={{ fontWeight: 600, fontSize: 14, color: '#111827' }}>
                 {formPoi._nouveau ? `Nouveau ${typeConfig[formPoi.type]?.label}` : (formPoi.titre || typeConfig[formPoi.type]?.label)}
               </span>

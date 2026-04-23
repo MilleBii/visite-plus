@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 
 class PoiTypeConfig {
   final Color color;
+  final String imagePath;
   final String emoji;
-  final IconData icon;
 
   const PoiTypeConfig({
     required this.color,
-    required this.emoji,
-    required this.icon,
+    required this.imagePath,
+    this.emoji = '📍',
   });
 }
 
@@ -25,23 +25,33 @@ class EvenementTypeConfig {
 const Map<String, PoiTypeConfig> poiTypeConfig = {
   'vitrail': PoiTypeConfig(
     color: Color(0xFF3B82F6),
+    imagePath: 'assets/icones/vitrail.jpg',
     emoji: '💠',
-    icon: Icons.window,
   ),
   'statue': PoiTypeConfig(
     color: Color(0xFF8B5CF6),
+    imagePath: 'assets/icones/statue.jpg',
     emoji: '👼',
-    icon: Icons.person_outline,
   ),
   'tableau': PoiTypeConfig(
     color: Color(0xFFF59E0B),
+    imagePath: 'assets/icones/tableau.jpg',
     emoji: '🖼️',
-    icon: Icons.image_outlined,
   ),
   'demarche': PoiTypeConfig(
     color: Color(0xFF10B981),
+    imagePath: 'assets/icones/bougie.jpg',
     emoji: '🕯️',
-    icon: Icons.local_fire_department_outlined,
+  ),
+  'information': PoiTypeConfig(
+    color: Color(0xFF0EA5E9),
+    imagePath: 'assets/icones/information.jpg',
+    emoji: 'ℹ️',
+  ),
+  'priere': PoiTypeConfig(
+    color: Color(0xFFEC4899),
+    imagePath: 'assets/icones/priere.jpg',
+    emoji: '🙏',
   ),
 };
 
@@ -64,8 +74,8 @@ PoiTypeConfig getPoiConfig(String type) {
   return poiTypeConfig[type] ??
       const PoiTypeConfig(
         color: Color(0xFF78716C),
+        imagePath: '',
         emoji: '📍',
-        icon: Icons.place_outlined,
       );
 }
 

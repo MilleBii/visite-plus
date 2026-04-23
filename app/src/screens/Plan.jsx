@@ -36,19 +36,22 @@ function buildLocal(footprintGps, angleDeg, poisArr) {
 
 function createIcon(type) {
   const cfg = typeConfig[type] || { icon: '📍', color: '#666' }
+  const inner = cfg.image
+    ? `<img src="${cfg.image}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;" />`
+    : `<span style="font-size:16px">${cfg.icon}</span>`
   return L.divIcon({
     html: `<div style="
-      background: white;
-      border: 2.5px solid ${cfg.color};
+      background: ${cfg.image ? cfg.color : 'white'};
+      border: 1.5px solid ${cfg.color};
       border-radius: 50%;
-      width: 36px; height: 36px;
+      width: 40px; height: 40px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 16px;
+      overflow: hidden;
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    ">${cfg.icon}</div>`,
+    ">${inner}</div>`,
     className: '',
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
   })
 }
 
@@ -124,11 +127,17 @@ export default function Plan({ onBack }) {
           {Object.entries(typeConfig).map(([type, cfg]) => (
             <div key={type} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#44403C' }}>
               <span style={{
-                width: '20px', height: '20px', borderRadius: '50%',
-                border: `2px solid ${cfg.color}`, background: 'white',
+                width: '24px', height: '24px', borderRadius: '50%',
+                border: `1px solid ${cfg.color}`,
+                background: cfg.image ? cfg.color : 'white',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '10px', flexShrink: 0,
-              }}>{cfg.icon}</span>
+                overflow: 'hidden', flexShrink: 0,
+              }}>
+                {cfg.image
+                  ? <img src={cfg.image} style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }} />
+                  : <span style={{ fontSize: '10px' }}>{cfg.icon}</span>
+                }
+              </span>
               {cfg.label}
             </div>
           ))}
@@ -202,7 +211,10 @@ export default function Plan({ onBack }) {
                   background: '#F5F5F4', borderRadius: '6px',
                   padding: '2px 8px', fontSize: '12px', color: '#78716C', marginBottom: '6px',
                 }}>
-                  <span>{typeConfig[poiSelectionne.type]?.icon}</span>
+                  {typeConfig[poiSelectionne.type]?.image
+                    ? <img src={typeConfig[poiSelectionne.type].image} style={{ width: '14px', height: '14px', borderRadius: '50%', objectFit: 'cover', pointerEvents: 'none' }} />
+                    : <span>{typeConfig[poiSelectionne.type]?.icon}</span>
+                  }
                   <span>{typeConfig[poiSelectionne.type]?.label}</span>
                 </div>
                 <p style={{ fontWeight: '600', fontSize: '16px', color: '#1C1917', marginBottom: '4px' }}>

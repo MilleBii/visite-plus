@@ -111,10 +111,12 @@ export const questions = [
 ]
 
 export const typeConfig = {
-  vitrail: { label: "Vitrail", color: "#3B82F6", icon: "🪟" },
-  statue: { label: "Statue", color: "#8B5CF6", icon: "🗿" },
-  tableau: { label: "Tableau", color: "#F59E0B", icon: "🖼️" },
-  demarche: { label: "Démarche", color: "#10B981", icon: "🕯️" },
+  vitrail:     { label: "Vitrail",     color: "#3B82F6", icon: "🪟", image: "/icones/vitrail.jpg" },
+  statue:      { label: "Statue",      color: "#8B5CF6", icon: "🗿", image: "/icones/statue.jpg" },
+  tableau:     { label: "Tableau",     color: "#F59E0B", icon: "🖼️", image: "/icones/tableau.jpg" },
+  demarche:    { label: "Démarche",    color: "#10B981", icon: "🕯️", image: "/icones/bougie.jpg" },
+  information: { label: "Information", color: "#0EA5E9", icon: "ℹ️", image: "/icones/information.jpg" },
+  priere:      { label: "Prière",      color: "#EC4899", icon: "🙏", image: "/icones/priere.jpg" },
 }
 
 export const evenementConfig = {
