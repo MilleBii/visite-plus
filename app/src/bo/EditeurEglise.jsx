@@ -121,6 +121,8 @@ export default function EditeurEglise({ egliseId, onRetour }) {
     lon: '',
     message_bienvenue: 'Croyant ou non, bienvenue dans cette église !',
     photo_facade: '',
+    photo_facade_x: 50,
+    photo_facade_y: 50,
     google_calendar_messes_id: '',
     google_calendar_evenements_id: '',
     messeinfo_sync_mode: '', // '', 'import', 'export'
@@ -249,6 +251,8 @@ export default function EditeurEglise({ egliseId, onRetour }) {
         lon: data.position?.[1] ?? '',
         message_bienvenue: data.message_bienvenue || '',
         photo_facade: data.photo_facade || '',
+        photo_facade_x: data.photo_facade_x ?? 50,
+        photo_facade_y: data.photo_facade_y ?? 50,
         google_calendar_messes_id: data.google_calendar_messes_id || '',
         google_calendar_evenements_id: data.google_calendar_evenements_id || '',
         slug: data.slug || '',
@@ -374,6 +378,8 @@ export default function EditeurEglise({ egliseId, onRetour }) {
       position: [parseFloat(form.lat), parseFloat(form.lon)],
       message_bienvenue: form.message_bienvenue,
       photo_facade: form.photo_facade,
+      photo_facade_x: form.photo_facade_x,
+      photo_facade_y: form.photo_facade_y,
       google_calendar_id: form.google_calendar_id,
       slug: form.slug,
       statut: publier ? 'publié' : form.statut,
@@ -677,8 +683,25 @@ async function resoudreUrlPhoto(url) {
 
 function OngletInformations({ form, onChange, dioceses, onRechercherPhoto, recherchePhoto, slugEtat, onSlugChange, onUploadPhoto, uploadPhoto }) {
   const inputFichierRef = useRef(null)
+  const photoContainerRef = useRef(null)
   const [saisieUrl, setSaisieUrl] = useState(false)
   const [resolutionUrl, setResolutionUrl] = useState(false)
+  const [glissement, setGlissement] = useState(false)
+  const [formatTel, setFormatTel] = useState('standard')
+
+  const FORMATS = {
+    compact:  { label: '16:9',    ratio: '9/16',   desc: 'Ancien / petit écran' },
+    standard: { label: '19.5:9',  ratio: '9/19.5', desc: 'iPhone / Pixel' },
+    grand:    { label: '20:9',    ratio: '9/20',   desc: 'Samsung / grand écran' },
+  }
+
+  function calculerFocus(e) {
+    const rect = photoContainerRef.current.getBoundingClientRect()
+    const x = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)))
+    const y = Math.max(0, Math.min(100, Math.round(((e.clientY - rect.top) / rect.height) * 100)))
+    onChange('photo_facade_x', x)
+    onChange('photo_facade_y', y)
+  }
 
   async function confirmerUrl(valeur) {
     const url = valeur.trim()
@@ -764,16 +787,114 @@ function OngletInformations({ form, onChange, dioceses, onRechercherPhoto, reche
       {/* Colonne droite — Photo */}
       <div>
         <Carte titre="Photo de façade">
-          <div style={{
-            width: '100%', aspectRatio: '3/4',
-            background: '#F3F4F6', borderRadius: 8,
-            overflow: 'hidden', marginBottom: 12,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            {form.photo_facade
-              ? <img src={form.photo_facade} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <span style={{ color: '#9CA3AF', fontSize: 13 }}>Aucune photo</span>
-            }
+
+          {/* Sélecteur de format téléphone */}
+          <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+            {Object.entries(FORMATS).map(([key, f]) => (
+              <button
+                key={key}
+                onClick={() => setFormatTel(key)}
+                title={f.desc}
+                style={{
+                  flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 11, fontWeight: 500,
+                  border: `1px solid ${formatTel === key ? C.primaire : C.bordure}`,
+                  background: formatTel === key ? C.primaire : C.blanc,
+                  color: formatTel === key ? '#fff' : C.texteSecondaire,
+                  cursor: 'pointer',
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <p style={{ margin: '-6px 0 0', fontSize: 11, color: C.texteSecondaire, textAlign: 'center' }}>
+            {FORMATS[formatTel].desc}
+          </p>
+
+          {/* Cadre téléphone */}
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <div style={{
+              background: '#1a1a1a',
+              borderRadius: 36,
+              padding: '10px 8px',
+              boxShadow: '0 0 0 1px #333, 0 8px 32px rgba(0,0,0,0.35)',
+              display: 'inline-block',
+            }}>
+              {/* Encoche */}
+              <div style={{
+                width: 60, height: 10, background: '#111', borderRadius: 6,
+                margin: '0 auto 6px', display: 'block',
+              }} />
+              {/* Zone photo interactive */}
+              <div
+                ref={photoContainerRef}
+                onPointerDown={e => {
+                  if (!form.photo_facade) return
+                  e.currentTarget.setPointerCapture(e.pointerId)
+                  setGlissement(true)
+                  calculerFocus(e)
+                }}
+                onPointerMove={e => {
+                  if (!glissement) return
+                  calculerFocus(e)
+                }}
+                onPointerUp={() => setGlissement(false)}
+                onPointerCancel={() => setGlissement(false)}
+                style={{
+                  width: 200,
+                  aspectRatio: FORMATS[formatTel].ratio,
+                  background: '#F3F4F6', borderRadius: 4,
+                  overflow: 'hidden',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  position: 'relative',
+                  cursor: form.photo_facade ? (glissement ? 'grabbing' : 'crosshair') : 'default',
+                  userSelect: 'none',
+                }}
+              >
+                {form.photo_facade ? (
+                  <>
+                    <img
+                      src={form.photo_facade}
+                      alt=""
+                      draggable={false}
+                      style={{
+                        width: '100%', height: '100%', objectFit: 'cover',
+                        objectPosition: `${form.photo_facade_x}% ${form.photo_facade_y}%`,
+                        display: 'block', pointerEvents: 'none',
+                      }}
+                    />
+                    <div style={{
+                      position: 'absolute',
+                      left: `${form.photo_facade_x}%`,
+                      top: `${form.photo_facade_y}%`,
+                      transform: 'translate(-50%, -50%)',
+                      width: 30, height: 30, borderRadius: '50%',
+                      border: '2.5px solid rgba(255,255,255,0.95)',
+                      background: 'rgba(0,0,0,0.25)',
+                      boxShadow: '0 0 0 1px rgba(0,0,0,0.3), 0 2px 6px rgba(0,0,0,0.4)',
+                      pointerEvents: 'none',
+                      transition: glissement ? 'none' : 'left 0.1s, top 0.1s',
+                    }} />
+                    <div style={{
+                      position: 'absolute', bottom: 0, left: 0, right: 0,
+                      padding: '14px 6px 4px',
+                      background: 'linear-gradient(transparent, rgba(0,0,0,0.55))',
+                      fontSize: 9, color: 'rgba(255,255,255,0.9)', textAlign: 'center',
+                      pointerEvents: 'none',
+                    }}>
+                      {glissement ? `${form.photo_facade_x}% · ${form.photo_facade_y}%` : 'Glisser pour repositionner'}
+                    </div>
+                  </>
+                ) : (
+                  <span style={{ color: '#9CA3AF', fontSize: 11 }}>Aucune photo</span>
+                )}
+              </div>
+              {/* Bouton home */}
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%', background: '#2a2a2a',
+                border: '1px solid #444', margin: '6px auto 0',
+              }} />
+            </div>
           </div>
 
           <button
