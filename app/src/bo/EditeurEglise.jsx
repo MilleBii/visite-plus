@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabaseClient'
+import { useAuth } from '../contexts/AuthContext'
 import OngletPlan from './OngletPlan'
 
 function slugify(str) {
@@ -72,6 +73,7 @@ function formatAxisLabel(label) {
 }
 
 export default function EditeurEglise({ egliseId, onRetour }) {
+  const { profile, role } = useAuth()
   const [onglet, setOnglet] = useState('informations')
   const [etape, setEtape] = useState(egliseId ? 'edition' : 'recherche')
   const [recherche, setRecherche] = useState('')
@@ -408,6 +410,10 @@ export default function EditeurEglise({ egliseId, onRetour }) {
       google_calendar_id: form.google_calendar_id,
       slug: form.slug,
       statut: publier ? 'publié' : form.statut,
+    }
+
+    if (!egliseSelectionnee && role === 'admin_client' && profile?.client_id) {
+      donnees.client_id = profile.client_id
     }
 
     const { data: retour, error } = egliseSelectionnee

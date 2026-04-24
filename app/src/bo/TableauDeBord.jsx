@@ -379,7 +379,7 @@ function VueCarte({ eglises, eglisesFiltrees, egliseSelectionnee, recherche, set
           <span style={{ fontSize: 12, color: C.texteSecondaire }}>
             {chargement ? 'Chargement…' : `${liste.length} église${liste.length > 1 ? 's' : ''}`}
           </span>
-          {role === 'super_admin' && (
+          {['super_admin', 'admin_client'].includes(role) && (
             <button onClick={onAjouter} style={{
               background: C.primaire, color: '#fff', border: 'none', borderRadius: 6,
               padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
@@ -482,7 +482,7 @@ function VueStats({ eglises, stats, chargement, onEditer, onChangerStatut, onAjo
               <span style={{ fontSize: 12, color: C.texteSecondaire }}>
                 {chargement ? 'Chargement…' : `${eglisesFiltrees.length} église${eglisesFiltrees.length > 1 ? 's' : ''}`}
               </span>
-              {role === 'super_admin' && (
+              {['super_admin', 'admin_client'].includes(role) && (
                 <button onClick={onAjouter} style={{
                   background: C.primaire, color: '#fff', border: 'none', borderRadius: 6,
                   padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
@@ -732,12 +732,14 @@ const BADGE_STATUT_CLIENT = {
 }
 
 function VueClients({ role }) {
-  const [clients, setClients]             = useState([])
-  const [dioceses, setDioceses]           = useState([])
-  const [chargement, setChargement]       = useState(true)
-  const [erreur, setErreur]               = useState(null)
+  const [clients, setClients]               = useState([])
+  const [dioceses, setDioceses]             = useState([])
+  const [statsParClient, setStatsParClient] = useState({})
+  const [nbEglises, setNbEglises]           = useState({})
+  const [chargement, setChargement]         = useState(true)
+  const [erreur, setErreur]                 = useState(null)
   const [clientEnEdition, setClientEnEdition] = useState(null)
-  const [filtreDiocese, setFiltreDiocese] = useState('')
+  const [filtreDiocese, setFiltreDiocese]   = useState('')
 
   const clientsFiltres = filtreDiocese
     ? clients.filter(c => c.dioceses?.nom === filtreDiocese)
@@ -747,13 +749,105 @@ function VueClients({ role }) {
 
   async function charger() {
     setChargement(true)
-    const [{ data: cls, error: cErr }, { data: diocs }] = await Promise.all([
+    const maintenant = new Date()
+    const il_y_a_28j = new Date(maintenant - 28 * 86400000).toISOString()
+    const il_y_a_56j = new Date(maintenant - 56 * 86400000).toISOString()
+
+    const [{ data: cls, error: cErr }, { data: diocs }, { data: eglisesData }] = await Promise.all([
       supabase.from('clients').select('id, nom, type, statut, diocese_id, email_contact, telephone, dioceses(nom)').order('nom'),
       supabase.from('dioceses').select('id, nom, region').order('region, nom'),
+      supabase.from('eglises').select('id, client_id').neq('statut', 'archivé'),
     ])
     if (cErr) { setErreur(cErr.message); setChargement(false); return }
     setClients(cls || [])
     setDioceses(diocs || [])
+
+    const eglises = eglisesData || []
+    const egliseIds = eglises.map(e => e.id)
+    const egliseVersClient = {}
+    const nbAgg = {}
+    for (const e of eglises) {
+      egliseVersClient[e.id] = e.client_id
+      nbAgg[e.client_id] = (nbAgg[e.client_id] || 0) + 1
+    }
+    setNbEglises(nbAgg)
+
+    if (!egliseIds.length) { setStatsParClient({}); setChargement(false); return }
+
+    const { data: poisData } = await supabase
+      .from('pois').select('id, eglise_id, type').in('eglise_id', egliseIds)
+    const poiVersClient = {}
+    const poiVersType = {}
+    for (const p of poisData || []) {
+      poiVersClient[p.id] = egliseVersClient[p.eglise_id]
+      poiVersType[p.id] = p.type
+    }
+    const poiIds = Object.keys(poiVersClient).map(Number)
+
+    const [
+      { data: egliseCourant },
+      { data: eglisePrecedent },
+      { data: poiCourant },
+      { data: poiPrecedent },
+    ] = await Promise.all([
+      supabase.from('stats_vues').select('entite_id, count').eq('entite_type', 'eglise').in('entite_id', egliseIds).gte('slot', il_y_a_28j),
+      supabase.from('stats_vues').select('entite_id, count').eq('entite_type', 'eglise').in('entite_id', egliseIds).gte('slot', il_y_a_56j).lt('slot', il_y_a_28j),
+      poiIds.length
+        ? supabase.from('stats_vues').select('entite_id, count').eq('entite_type', 'poi').in('entite_id', poiIds).gte('slot', il_y_a_28j)
+        : Promise.resolve({ data: [] }),
+      poiIds.length
+        ? supabase.from('stats_vues').select('entite_id, count').eq('entite_type', 'poi').in('entite_id', poiIds).gte('slot', il_y_a_56j).lt('slot', il_y_a_28j)
+        : Promise.resolve({ data: [] }),
+    ])
+
+    const visitesCourant = {}
+    const visitesPrecedent = {}
+    for (const row of egliseCourant || []) {
+      const cid = egliseVersClient[row.entite_id]
+      if (cid) visitesCourant[cid] = (visitesCourant[cid] || 0) + (row.count || 0)
+    }
+    for (const row of eglisePrecedent || []) {
+      const cid = egliseVersClient[row.entite_id]
+      if (cid) visitesPrecedent[cid] = (visitesPrecedent[cid] || 0) + (row.count || 0)
+    }
+    const poiCourantParClient = {}
+    const poiPrecedentParClient = {}
+    for (const row of poiCourant || []) {
+      const cid = poiVersClient[row.entite_id]
+      const type = poiVersType[row.entite_id]
+      if (!cid || !type) continue
+      if (!poiCourantParClient[cid]) poiCourantParClient[cid] = {}
+      poiCourantParClient[cid][type] = (poiCourantParClient[cid][type] || 0) + (row.count || 0)
+    }
+    for (const row of poiPrecedent || []) {
+      const cid = poiVersClient[row.entite_id]
+      const type = poiVersType[row.entite_id]
+      if (!cid || !type) continue
+      if (!poiPrecedentParClient[cid]) poiPrecedentParClient[cid] = {}
+      poiPrecedentParClient[cid][type] = (poiPrecedentParClient[cid][type] || 0) + (row.count || 0)
+    }
+
+    const statsMap = {}
+    for (const client of cls || []) {
+      const cid = client.id
+      const v28 = visitesCourant[cid] || 0
+      const vPr = visitesPrecedent[cid] || 0
+      const vuesPar = {}
+      const deltaVues = {}
+      for (const t of TYPES_POI) {
+        const c28 = poiCourantParClient[cid]?.[t] || 0
+        const cPr = poiPrecedentParClient[cid]?.[t] || 0
+        vuesPar[t] = c28
+        deltaVues[t] = cPr > 0 ? Math.round(((c28 - cPr) / cPr) * 100) : null
+      }
+      statsMap[cid] = {
+        visites28j: v28,
+        delta: vPr > 0 ? Math.round(((v28 - vPr) / vPr) * 100) : null,
+        vuesPoi28j: vuesPar,
+        deltaVues,
+      }
+    }
+    setStatsParClient(statsMap)
     setChargement(false)
   }
 
@@ -785,48 +879,67 @@ function VueClients({ role }) {
         </button>
       </div>
 
+      {/* En-tête colonnes stats */}
+      <div style={{ display: 'flex', alignItems: 'center', borderBottom: `1px solid ${C.bordure}`, background: C.bg, flexShrink: 0 }}>
+        <div style={{ width: 360, flexShrink: 0 }} />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '8px 32px', gap: 32 }}>
+          <ColHeader label="Visites" sub="28 derniers jours" />
+          {TYPES_POI.map(t => (
+            <ColHeader key={t} label={`${typeConfig[t].icon} ${typeConfig[t].label}`} sub="28 derniers jours" />
+          ))}
+        </div>
+      </div>
+
       {/* Liste */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {erreur && <div style={{ padding: 16, color: C.rouge, fontSize: 13 }}>{erreur}</div>}
         {!chargement && clientsFiltres.map(client => {
           const badge = BADGE_STATUT_CLIENT[client.statut] || BADGE_STATUT_CLIENT.actif
+          const stat = statsParClient[client.id] || { visites28j: 0, vuesPoi28j: {}, delta: null, deltaVues: {} }
+          const nb = nbEglises[client.id] || 0
           return (
-            <div key={client.id} style={{
-              display: 'flex', alignItems: 'center', gap: 16,
-              padding: '14px 24px', borderBottom: `1px solid ${C.bordure}`,
-              background: C.blanc,
-            }}>
-              {/* Icone type */}
-              <div style={{
-                width: 40, height: 40, borderRadius: 8, flexShrink: 0,
-                background: '#F0FDF4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
-              }}>
-                {client.type === 'diocese' ? '⛪' : client.type === 'sanctuaire' ? '🕍' : client.type === 'paroisse' ? '✝' : '🏢'}
-              </div>
-
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: '#111827' }}>{client.nom}</div>
-                <div style={{ fontSize: 12, color: C.texteSecondaire, marginTop: 2 }}>
-                  {TYPE_CLIENT_LABEL[client.type] ?? client.type}
-                  {client.dioceses?.nom && ` · ${client.dioceses.nom}`}
+            <div key={client.id} style={{ display: 'flex', alignItems: 'center', borderBottom: `1px solid ${C.bordure}`, background: C.blanc }}>
+              {/* Panneau gauche : infos client */}
+              <div style={{ width: 360, flexShrink: 0, borderRight: `1px solid ${C.bordure}`, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 8, flexShrink: 0,
+                  background: '#F0FDF4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
+                }}>
+                  {client.type === 'diocese' ? '⛪' : client.type === 'sanctuaire' ? '🕍' : client.type === 'paroisse' ? '✝' : '🏢'}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{client.nom}</div>
+                  <div style={{ fontSize: 12, color: C.texteSecondaire, marginTop: 2 }}>
+                    {TYPE_CLIENT_LABEL[client.type] ?? client.type}
+                    {client.dioceses?.nom && ` · ${client.dioceses.nom}`}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#A8A29E', marginTop: 1 }}>
+                    {nb} église{nb > 1 ? 's' : ''}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0 }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: badge.bg, color: badge.color }}>
+                    {badge.label}
+                  </span>
+                  <button
+                    onClick={() => setClientEnEdition(client)}
+                    title="Configurer"
+                    style={{ background: 'none', border: `1px solid ${C.bordure}`, borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#374151', display: 'flex', alignItems: 'center' }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="3"/>
+                      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                  </button>
                 </div>
               </div>
-
-              {client.email_contact && (
-                <span style={{ fontSize: 12, color: C.texteSecondaire }}>{client.email_contact}</span>
-              )}
-
-              <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: badge.bg, color: badge.color }}>
-                {badge.label}
-              </span>
-
-              <button
-                onClick={() => setClientEnEdition(client)}
-                title="Modifier"
-                style={{ background: 'none', border: `1px solid ${C.bordure}`, borderRadius: 6, padding: '5px 10px', fontSize: 12, cursor: 'pointer', color: '#374151' }}
-              >
-                Modifier
-              </button>
+              {/* Panneau droit : stats agrégées */}
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '0 32px', gap: 32 }}>
+                <StatChiffre valeur={stat.visites28j} delta={stat.delta} />
+                {TYPES_POI.map(t => (
+                  <StatChiffre key={t} valeur={stat.vuesPoi28j?.[t] || 0} delta={stat.deltaVues?.[t] ?? null} />
+                ))}
+              </div>
             </div>
           )
         })}
