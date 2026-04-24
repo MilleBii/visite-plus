@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '../supabaseClient'
+import { supabase, SUPABASE_URL } from '../supabaseClient'
 import { useAuth } from '../contexts/AuthContext'
 import OngletPlan from './OngletPlan'
 
@@ -24,13 +24,15 @@ const C = {
   succes: '#059669',
 }
 
-const ONGLETS = [
+const ONGLETS_BASE = [
   { id: 'informations', label: 'Informations' },
   { id: 'plan', label: 'Plan & POI' },
   { id: 'statistiques', label: 'Statistiques' },
   { id: 'evenements', label: 'Événements' },
   { id: 'qrcode', label: 'QR Code' },
 ]
+
+const ROLES_GESTION_EDITEURS = ['super_admin', 'editeur_1visible', 'admin_client']
 
 const STATS_RANGES = {
   '24h': { label: '24h', hours: 24, granularity: 'hour' },
@@ -115,6 +117,7 @@ export default function EditeurEglise({ egliseId, onRetour }) {
   }, [])
 
   const [clientNom, setClientNom] = useState(null)
+  const [egliseClientId, setEgliseClientId] = useState(null)
 
   const [form, setForm] = useState({
     nom: '',
@@ -127,6 +130,7 @@ export default function EditeurEglise({ egliseId, onRetour }) {
     photo_facade: '',
     photo_facade_x: 50,
     photo_facade_y: 50,
+    url_site: '',
     google_calendar_messes_id: '',
     google_calendar_evenements_id: '',
     messeinfo_sync_mode: '', // '', 'import', 'export'
@@ -248,6 +252,7 @@ export default function EditeurEglise({ egliseId, onRetour }) {
       setErreur(error.message)
     } else if (data) {
       setClientNom(data.clients?.nom || null)
+      setEgliseClientId(data.client_id || null)
       const formCharge = {
         nom: data.nom || '',
         type: data.type || 'église',
@@ -259,6 +264,7 @@ export default function EditeurEglise({ egliseId, onRetour }) {
         photo_facade: data.photo_facade || '',
         photo_facade_x: data.photo_facade_x ?? 50,
         photo_facade_y: data.photo_facade_y ?? 50,
+        url_site: data.url_site || '',
         google_calendar_messes_id: data.google_calendar_messes_id || '',
         google_calendar_evenements_id: data.google_calendar_evenements_id || '',
         slug: data.slug || '',
@@ -407,6 +413,7 @@ export default function EditeurEglise({ egliseId, onRetour }) {
       photo_facade: form.photo_facade,
       photo_facade_x: form.photo_facade_x,
       photo_facade_y: form.photo_facade_y,
+      url_site: form.url_site || null,
       google_calendar_id: form.google_calendar_id,
       slug: form.slug,
       statut: publier ? 'publié' : form.statut,
@@ -632,7 +639,10 @@ export default function EditeurEglise({ egliseId, onRetour }) {
 
       {/* Onglets */}
       <div style={{ background: C.blanc, borderBottom: `1px solid ${C.bordure}`, display: 'flex', paddingLeft: 24, gap: 0 }}>
-        {ONGLETS.map(o => {
+        {[
+          ...ONGLETS_BASE,
+          ...(ROLES_GESTION_EDITEURS.includes(role) ? [{ id: 'editeurs', label: 'Éditeurs' }] : []),
+        ].map(o => {
           const bloque = o.id !== 'informations' && !egliseSelectionnee
           return (
             <button
@@ -702,7 +712,16 @@ export default function EditeurEglise({ egliseId, onRetour }) {
             ville={form.ville}
             slug={form.slug}
             photoFacade={form.photo_facade}
+            photoFacadeX={form.photo_facade_x ?? 50}
+            photoFacadeY={form.photo_facade_y ?? 50}
             egliseId={egliseId}
+          />
+        )}
+        {onglet === 'editeurs' && (
+          <OngletEditeurs
+            egliseId={egliseSelectionnee}
+            clientId={egliseClientId ?? profile?.client_id}
+            role={role}
           />
         )}
       </div>
@@ -789,6 +808,9 @@ function OngletInformations({ form, onChange, dioceses, onRechercherPhoto, reche
               onChange={v => onChange('diocese_id', v)}
               dioceses={dioceses}
             />
+          </Champ>
+          <Champ label="Site web" hint="Facultatif — affiché sur la fiche de l'église">
+            <Input valeur={form.url_site} onChange={v => onChange('url_site', v)} placeholder="https://www.paroisse-saint-sulpice.fr" type="url" />
           </Champ>
           <Champ label="Slug URL" requis hint={`visite-plus.fr/eglise/${form.slug || '{slug}'}`}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1278,7 +1300,7 @@ function OngletStatistiques({ form, stats, statsRange, onChangeRange, onRefresh 
   )
 }
 
-function OngletQRCode({ nom, ville, slug, photoFacade, egliseId }) {
+function OngletQRCode({ nom, ville, slug, photoFacade, photoFacadeX = 50, photoFacadeY = 50, egliseId }) {
   const destination = slug
     ? `https://visite-plus.fr/eglise/${slug}`
     : `https://visite-plus.fr/eglise/${egliseId || ''}`
@@ -1322,7 +1344,7 @@ function OngletQRCode({ nom, ville, slug, photoFacade, egliseId }) {
             ? `linear-gradient(180deg, rgba(0,0,0,0.26) 0%, rgba(0,0,0,0.68) 62%), url(${photoFacade})`
             : 'linear-gradient(165deg, #3f7c6b 0%, #20493d 45%, #122e26 100%)',
           backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          backgroundPosition: photoFacade ? `${photoFacadeX}% ${photoFacadeY}%` : 'center',
           color: '#fff',
           display: 'flex',
           flexDirection: 'column',
@@ -1500,5 +1522,265 @@ function BoutonHeader({ children, onClick, disabled, variante }) {
     >
       {children}
     </button>
+  )
+}
+
+// ─── Onglet Éditeurs ──────────────────────────────────────────────────────────
+
+const BADGE_ROLE_EDITEUR = {
+  bg: '#374151', color: '#fff', label: 'Éditeur',
+}
+
+function OngletEditeurs({ egliseId, clientId, role }) {
+  const [editeurs, setEditeurs]         = useState([])  // tous les editeur_client du client
+  const [affectes, setAffectes]         = useState(new Set()) // user_ids affectés à cette église
+  const [chargement, setChargement]     = useState(true)
+  const [erreur, setErreur]             = useState(null)
+  const [enCours, setEnCours]           = useState(new Set()) // user_ids en cours de bascule
+  const [invitModal, setInvitModal]     = useState(false)
+
+  useEffect(() => { charger() }, [egliseId, clientId])
+
+  async function charger() {
+    if (!egliseId) return
+    setChargement(true)
+    setErreur(null)
+
+    // Charge les éditeurs du client + les affectations existantes en parallèle
+    const clientFilter = clientId
+      ? supabase.from('user_profiles').select('user_id, prenom, nom, role, actif, cgu_accepte').eq('client_id', clientId).in('role', ['admin_client', 'editeur_client']).order('nom')
+      : supabase.from('user_profiles').select('user_id, prenom, nom, role, actif, cgu_accepte').in('role', ['admin_client', 'editeur_client']).order('nom')
+
+    const [{ data: usersData, error: uErr }, { data: affData, error: aErr }] = await Promise.all([
+      clientFilter,
+      supabase.from('user_eglises').select('user_id').eq('eglise_id', egliseId),
+    ])
+
+    if (uErr || aErr) { setErreur((uErr || aErr).message); setChargement(false); return }
+    setEditeurs(usersData || [])
+    setAffectes(new Set((affData || []).map(r => r.user_id)))
+    setChargement(false)
+  }
+
+  async function basculerAffectation(userId, estAffecte) {
+    setEnCours(prev => new Set(prev).add(userId))
+    let error
+    if (estAffecte) {
+      ;({ error } = await supabase.from('user_eglises').delete().eq('user_id', userId).eq('eglise_id', egliseId))
+    } else {
+      ;({ error } = await supabase.from('user_eglises').insert({ user_id: userId, eglise_id: egliseId }))
+    }
+    if (error) {
+      setErreur(error.message)
+    } else {
+      setAffectes(prev => {
+        const s = new Set(prev)
+        estAffecte ? s.delete(userId) : s.add(userId)
+        return s
+      })
+    }
+    setEnCours(prev => { const s = new Set(prev); s.delete(userId); return s })
+  }
+
+  const aucuneAffectation = affectes.size === 0
+
+  const champStyle = { fontSize: 13, color: C.texteSecondaire, marginBottom: 20 }
+
+  return (
+    <div style={{ maxWidth: 640 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: '#111827', margin: 0 }}>Éditeurs affectés</h2>
+        {['admin_client', 'super_admin', 'editeur_1visible'].includes(role) && (
+          <button
+            onClick={() => setInvitModal(true)}
+            style={{ background: C.primaire, color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+          >
+            + Inviter un éditeur
+          </button>
+        )}
+      </div>
+
+      <p style={champStyle}>
+        {aucuneAffectation
+          ? 'Aucune restriction : tous les éditeurs peuvent modifier cette église.'
+          : `${affectes.size} éditeur${affectes.size > 1 ? 's' : ''} affecté${affectes.size > 1 ? 's' : ''} — les autres n'ont pas accès à cette église.`}
+      </p>
+
+      {erreur && (
+        <div style={{ background: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 8, padding: '10px 14px', marginBottom: 16, color: C.danger, fontSize: 13 }}>
+          {erreur}
+        </div>
+      )}
+
+      {chargement ? (
+        <p style={{ color: C.texteSecondaire, fontSize: 13 }}>Chargement…</p>
+      ) : editeurs.length === 0 ? (
+        <div style={{ background: C.bg, borderRadius: 10, padding: '32px 24px', textAlign: 'center', color: C.texteSecondaire, fontSize: 14 }}>
+          Aucun utilisateur dans ce client.
+          <br />
+          <span style={{ fontSize: 13 }}>Utilisez "+ Inviter un éditeur" pour en ajouter un.</span>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {editeurs.map(u => {
+            const estAdmin       = u.role === 'admin_client'
+            const estAffecte     = estAdmin || affectes.has(u.user_id)
+            const enCoursToggle  = enCours.has(u.user_id)
+            const nomComplet     = [u.prenom, u.nom].filter(Boolean).join(' ') || '—'
+            const avatarBg       = estAdmin ? '#92400E' : BADGE_ROLE_EDITEUR.bg
+            return (
+              <div key={u.user_id} style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                background: C.blanc, border: `1px solid ${estAffecte ? '#86EFAC' : C.bordure}`,
+                borderRadius: 10, padding: '12px 16px',
+                opacity: (!u.actif && u.cgu_accepte) ? 0.45 : 1,
+              }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                  background: avatarBg,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 14, fontWeight: 700, color: '#fff',
+                }}>
+                  {(u.prenom?.[0] ?? u.nom?.[0] ?? '?').toUpperCase()}
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: '#111827' }}>{nomComplet}</div>
+                  <div style={{ fontSize: 12, color: C.texteSecondaire, marginTop: 2 }}>
+                    {!u.actif && !u.cgu_accepte ? 'Invitation envoyée'
+                      : !u.actif ? 'Désactivé'
+                      : 'Actif'}
+                  </div>
+                </div>
+
+                {estAdmin ? (
+                  <span style={{
+                    padding: '5px 12px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                    background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A',
+                    minWidth: 110, textAlign: 'center',
+                  }}>
+                    Admin client
+                  </span>
+                ) : ['admin_client', 'super_admin', 'editeur_1visible'].includes(role) && (
+                  <button
+                    onClick={() => basculerAffectation(u.user_id, affectes.has(u.user_id))}
+                    disabled={enCoursToggle}
+                    style={{
+                      padding: '6px 14px', borderRadius: 6, fontSize: 13, fontWeight: 600,
+                      cursor: enCoursToggle ? 'wait' : 'pointer',
+                      border: affectes.has(u.user_id) ? `1px solid #86EFAC` : `1px solid ${C.bordure}`,
+                      background: affectes.has(u.user_id) ? '#F0FDF4' : C.bg,
+                      color: affectes.has(u.user_id) ? '#15803D' : C.texteSecondaire,
+                      opacity: enCoursToggle ? 0.6 : 1,
+                      minWidth: 110,
+                    }}
+                  >
+                    {enCoursToggle ? '…' : affectes.has(u.user_id) ? '✓ Affecté' : 'Affecter'}
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {invitModal && (
+        <ModalInvitationEditeur
+          clientId={clientId}
+          egliseId={egliseId}
+          onFermer={() => setInvitModal(false)}
+          onSuccess={() => { setInvitModal(false); charger() }}
+        />
+      )}
+    </div>
+  )
+}
+
+function ModalInvitationEditeur({ clientId, egliseId, onFermer, onSuccess }) {
+  const [email, setEmail]   = useState('')
+  const [prenom, setPrenom] = useState('')
+  const [nom, setNom]       = useState('')
+  const [envoi, setEnvoi]   = useState(false)
+  const [erreur, setErreur] = useState(null)
+
+  const champStyle = { width: '100%', padding: '9px 12px', borderRadius: 8, border: `1px solid ${C.bordure}`, fontSize: 14, outline: 'none', boxSizing: 'border-box' }
+  const labelStyle = { display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setErreur(null)
+    setEnvoi(true)
+    const { data: { session } } = await supabase.auth.getSession()
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/invite-user`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+      body: JSON.stringify({
+        email,
+        role: 'editeur_client',
+        client_id: clientId,
+        prenom: prenom || undefined,
+        nom: nom || undefined,
+        redirect_to: `${window.location.origin}/bo/invite`,
+      }),
+    })
+    const json = await res.json()
+    setEnvoi(false)
+
+    if (!json.ok) { setErreur(json.error); return }
+
+    // Si l'invitation a créé/retrouvé un user, on l'affecte directement à cette église
+    if (json.user_id && egliseId) {
+      const { error: affErr } = await supabase
+        .from('user_eglises')
+        .upsert({ user_id: json.user_id, eglise_id: egliseId })
+      if (affErr) { setErreur(affErr.message); return }
+    }
+
+    onSuccess()
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+      <div style={{ background: '#fff', borderRadius: 12, padding: 32, width: '100%', maxWidth: 440, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
+        <div style={{ fontWeight: 700, fontSize: 17, color: '#111827', marginBottom: 6 }}>Inviter un éditeur</div>
+        <div style={{ fontSize: 13, color: C.texteSecondaire, marginBottom: 20 }}>
+          L'éditeur sera automatiquement affecté à cette église.
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Prénom</label>
+              <input value={prenom} onChange={e => setPrenom(e.target.value)} placeholder="Marie" style={champStyle} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Nom</label>
+              <input value={nom} onChange={e => setNom(e.target.value)} placeholder="Dupont" style={champStyle} />
+            </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Email *</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="marie@paroisse.fr" required style={champStyle} />
+          </div>
+
+          {erreur && (
+            <div style={{ padding: '10px 14px', borderRadius: 8, background: '#FEF2F2', color: C.danger, fontSize: 13, border: '1px solid #FECACA' }}>
+              {erreur}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+            <button type="button" onClick={onFermer} style={{ flex: 1, padding: '10px 0', borderRadius: 8, border: `1px solid ${C.bordure}`, background: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', color: '#374151' }}>
+              Annuler
+            </button>
+            <button type="submit" disabled={envoi} style={{ flex: 1, padding: '10px 0', borderRadius: 8, border: 'none', background: envoi ? '#9CA3AF' : C.primaire, color: '#fff', fontSize: 14, fontWeight: 600, cursor: envoi ? 'wait' : 'pointer' }}>
+              {envoi ? 'Envoi…' : 'Inviter et affecter'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   )
 }

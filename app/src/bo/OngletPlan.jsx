@@ -393,28 +393,25 @@ export default function OngletPlan({ egliseId }) {
 
   if (osmPropose) {
     const proposeNorm = normaliserPolygone(osmPropose);
-    const allPoints = proposeNorm.flat().filter(([lat, lon]) =>
-      typeof lat === 'number' && typeof lon === 'number' && !isNaN(lat) && !isNaN(lon)
-    );
-    const lats = allPoints.map(([lat, lon]) => lat);
-    const lons = allPoints.map(([lat, lon]) => lon);
-    const bounds = [
-      [Math.min(...lats), Math.min(...lons)],
-      [Math.max(...lats), Math.max(...lons)]
-    ];
+    // Project via cosLat correction — CRS.Simple treats lon/lat as equal units
+    const { toLocal, bounds } = proposeNorm.length > 0 && proposeNorm[0].length > 0
+      ? buildLocal(proposeNorm[0], 0)
+      : { toLocal: p => p, bounds: [[0, 0], [1, 1]] };
+    const proposeLocal = proposeNorm.map(ring => ring.map(toLocal));
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 108px)', minHeight: 400, borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.bordure}` }}>
         <div style={{ flex: 1, minHeight: 0, position: 'relative' }} ref={mapDivRef}>
           <MapContainer
             style={{ height: '100%', width: '100%', background: '#F0EDE8' }}
             bounds={bounds}
+            boundsOptions={{ padding: [40, 40] }}
             scrollWheelZoom={true}
             zoomControl={true}
             attributionControl={false}
             crs={L.CRS.Simple}
           >
             <Pane name="planPreviewPane" style={{ zIndex: 300 }}>
-              {proposeNorm.map((ring, i) => (
+              {proposeLocal.map((ring, i) => (
                 <Polygon
                   key={i}
                   positions={ring}
@@ -590,7 +587,7 @@ export default function OngletPlan({ egliseId }) {
             userSelect: 'none',
             pointerEvents: 'auto',
           }} title="Angle de rotation du plan">
-            {Math.round((angle % 360 + 360) % 360)}°
+            {((angle % 360 + 360) % 360).toFixed(2)}°
           </div>
           <div style={{ height: '100%', minHeight: 0, maxHeight: '100%', overflow: 'hidden' }}>
             <MapContainer
@@ -612,7 +609,7 @@ export default function OngletPlan({ egliseId }) {
               <GestionnaireClic modePlacement={modePlacement} onClic={surClicCarte} />
               <GestionnaireCurseur modePlacement={modePlacement} modeRotation={modeRotation} />
               <BoutonAutoFit bounds={bounds} />
-              <GestionnaireRotation modeRotation={modeRotation} onRotation={delta => setAngle(a => a + delta * 2)} />
+              <GestionnaireRotation modeRotation={modeRotation} onRotation={delta => setAngle(a => Math.round((a + delta * 0.25) * 100) / 100)} />
               <Pane name="planPane" style={{ zIndex: 300 }}>
                 <Polygon
                   positions={footprint}

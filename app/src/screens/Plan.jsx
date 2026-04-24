@@ -15,6 +15,19 @@ const POIS_GPS = [
   [47.22543, 6.11785],
 ];
 
+function normaliserPolygone(input) {
+  if (!input) return [];
+  if (input.type === 'Polygon' && Array.isArray(input.coordinates)) {
+    return input.coordinates.map(ring => ring.map(([lon, lat]) => [lat, lon]));
+  }
+  if (Array.isArray(input) && Array.isArray(input[0]) && Array.isArray(input[0][0])) {
+    const first = input[0][0];
+    if (first[0] > 40 && first[0] < 52 && first[1] > -5 && first[1] < 10) return input;
+    return input.map(ring => ring.map(([lon, lat]) => [lat, lon]));
+  }
+  return [];
+}
+
 function buildLocal(footprintGps, angleDeg, poisArr) {
   const latC = footprintGps.reduce((s, p) => s + p[0], 0) / footprintGps.length;
   const lonC = footprintGps.reduce((s, p) => s + p[1], 0) / footprintGps.length;
@@ -90,7 +103,8 @@ export default function Plan({ onBack }) {
   if (error) return <div>Erreur : {error}</div>;
   if (!footprintGps) return <div>Polygone OSM manquant pour cette église.</div>;
 
-  const { footprint, bounds, poisLocal } = buildLocal(footprintGps, angle, poisWithGps);
+  const rings = normaliserPolygone(footprintGps);
+  const { footprint, bounds, poisLocal } = buildLocal(rings[0] || [], angle, poisWithGps);
   const fermer = () => { setPoiSelectionne(null); setFicheComplete(false); };
 
   if (ficheComplete && poiSelectionne) {
