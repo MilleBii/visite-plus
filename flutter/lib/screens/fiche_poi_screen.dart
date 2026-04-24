@@ -169,6 +169,10 @@ class _FichePoiScreenState extends State<FichePoiScreen> {
                       child: CachedNetworkImage(
                         imageUrl: poi.photo!,
                         fit: BoxFit.cover,
+                        alignment: Alignment(
+                          (poi.photoX / 100.0) * 2 - 1,
+                          (poi.photoY / 100.0) * 2 - 1,
+                        ),
                         placeholder: (_, __) => Container(color: const Color(0xFFE7E5E4)),
                         errorWidget: (_, __, ___) => Container(color: const Color(0xFFE7E5E4)),
                       ),

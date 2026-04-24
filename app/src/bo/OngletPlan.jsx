@@ -228,6 +228,16 @@ export default function OngletPlan({ egliseId }) {
 
   const mapRef = useRef(null)
   const photoPreviewRef = useRef('')
+  const poiPhotoContainerRef = useRef(null)
+  const [poiGlissement, setPoiGlissement] = useState(false)
+
+  function calculerFocusPoi(e) {
+    const rect = poiPhotoContainerRef.current.getBoundingClientRect()
+    const x = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)))
+    const y = Math.max(0, Math.min(100, Math.round(((e.clientY - rect.top) / rect.height) * 100)))
+    champForm('photo_x', x)
+    champForm('photo_y', y)
+  }
 
   useEffect(() => {
     if (!modeRotation) {
@@ -275,6 +285,8 @@ export default function OngletPlan({ egliseId }) {
       position,
       titre: titreDefaut,
       photo: '',
+      photo_x: 50,
+      photo_y: 50,
       texte_resume: {},
       texte_comprendre: {},
       texte_historique: {},
@@ -716,14 +728,66 @@ export default function OngletPlan({ egliseId }) {
                 }}
                 style={styleInput}
               />
-              <p style={{ margin: '6px 0 0', fontSize: 11, color: C.texteSecondaire }}>
-                L'image sera uploadée au clic sur Enregistrer.
+              <p style={{ margin: '4px 0 6px', fontSize: 11, color: C.texteSecondaire }}>
+                Uploadée au clic sur Enregistrer.
               </p>
-              {(photoPreview || formPoi.photo) && (
-                <div style={{ width: '100%', aspectRatio: '9/16', background: '#eee', borderRadius: 6, marginTop: 6, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <img src={photoPreview || formPoi.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                </div>
-              )}
+
+              {(photoPreview || formPoi.photo) && (() => {
+                const src = photoPreview || formPoi.photo
+                const px = formPoi.photo_x ?? 50
+                const py = formPoi.photo_y ?? 50
+                return (
+                  <div
+                    ref={poiPhotoContainerRef}
+                    onPointerDown={e => {
+                      e.currentTarget.setPointerCapture(e.pointerId)
+                      setPoiGlissement(true)
+                      calculerFocusPoi(e)
+                    }}
+                    onPointerMove={e => { if (!poiGlissement) return; calculerFocusPoi(e) }}
+                    onPointerUp={() => setPoiGlissement(false)}
+                    onPointerCancel={() => setPoiGlissement(false)}
+                    style={{
+                      width: '100%', aspectRatio: '390/280',
+                      borderRadius: 6, overflow: 'hidden',
+                      position: 'relative',
+                      cursor: poiGlissement ? 'grabbing' : 'crosshair',
+                      userSelect: 'none', marginTop: 4,
+                    }}
+                  >
+                    <img
+                      src={src}
+                      alt=""
+                      draggable={false}
+                      style={{
+                        width: '100%', height: '100%', objectFit: 'cover',
+                        objectPosition: `${px}% ${py}%`,
+                        display: 'block', pointerEvents: 'none',
+                      }}
+                    />
+                    <div style={{
+                      position: 'absolute',
+                      left: `${px}%`, top: `${py}%`,
+                      transform: 'translate(-50%, -50%)',
+                      width: 26, height: 26, borderRadius: '50%',
+                      border: '2.5px solid rgba(255,255,255,0.95)',
+                      background: 'rgba(0,0,0,0.25)',
+                      boxShadow: '0 0 0 1px rgba(0,0,0,0.3), 0 2px 6px rgba(0,0,0,0.4)',
+                      pointerEvents: 'none',
+                      transition: poiGlissement ? 'none' : 'left 0.1s, top 0.1s',
+                    }} />
+                    <div style={{
+                      position: 'absolute', bottom: 0, left: 0, right: 0,
+                      padding: '16px 8px 5px',
+                      background: 'linear-gradient(transparent, rgba(0,0,0,0.5))',
+                      fontSize: 10, color: 'rgba(255,255,255,0.9)', textAlign: 'center',
+                      pointerEvents: 'none',
+                    }}>
+                      {poiGlissement ? `${px}% · ${py}%` : 'Glisser pour repositionner'}
+                    </div>
+                  </div>
+                )
+              })()}
             </ChampForm>
 
             {CHAMPS_POI.map(({ champ, label }) => {

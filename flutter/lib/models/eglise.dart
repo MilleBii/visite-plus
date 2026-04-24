@@ -10,6 +10,8 @@ class Eglise {
   final double latitude;
   final double longitude;
   final String? photoFacade;
+  final int photoFacadeX;
+  final int photoFacadeY;
   final String? planImage;
   final String? googleCalendarIdMesses;
   final String? googleCalendarIdEvenements;
@@ -27,6 +29,8 @@ class Eglise {
     required this.latitude,
     required this.longitude,
     this.photoFacade,
+    this.photoFacadeX = 50,
+    this.photoFacadeY = 50,
     dynamic messageBienvenue,
     this.planImage,
     this.googleCalendarIdMesses,
@@ -70,6 +74,8 @@ class Eglise {
             ? (position[1] as num).toDouble()
             : (json['longitude'] as num?)?.toDouble() ?? 0.0,
         photoFacade: json['photo_facade'] as String?,
+        photoFacadeX: (json['photo_facade_x'] as int?) ?? 50,
+        photoFacadeY: (json['photo_facade_y'] as int?) ?? 50,
         messageBienvenue: json['message_bienvenue'],
         planImage: json['plan_image'] as String?,
         googleCalendarIdMesses: json['google_calendar_id_messes'] as String?,

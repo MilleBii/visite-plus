@@ -8,6 +8,8 @@ class Poi {
   final double positionX;
   final double positionY;
   final String? photo;
+  final int photoX;
+  final int photoY;
 
   final dynamic _titre;
   final dynamic _texteResume;
@@ -23,6 +25,8 @@ class Poi {
     required this.positionX,
     required this.positionY,
     this.photo,
+    this.photoX = 50,
+    this.photoY = 50,
     dynamic texteResume,
     dynamic texteComprendre,
     dynamic texteHistorique,
@@ -66,6 +70,8 @@ class Poi {
           ? (position[1] as num).toDouble()
           : (json['position_y'] as num).toDouble(),
       photo: json['photo'] as String?,
+      photoX: (json['photo_x'] as int?) ?? 50,
+      photoY: (json['photo_y'] as int?) ?? 50,
       texteResume: json['texte_resume'],
       texteComprendre: json['texte_comprendre'],
       texteHistorique: json['texte_historique'],

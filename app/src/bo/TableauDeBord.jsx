@@ -100,7 +100,7 @@ export default function TableauDeBord({ onEditer, onAjouter }) {
     setChargement(true)
     let query = supabase
       .from('eglises')
-      .select('id, nom, ville, type, statut, position, photo_facade, client_id, clients(nom, dioceses(nom))')
+      .select('id, nom, ville, type, statut, position, photo_facade, client_id, diocese_id, clients(nom, dioceses(nom)), dioceses(nom)')
       .neq('statut', 'archivé')
       .order('nom')
 
@@ -340,16 +340,17 @@ function VueCarte({ eglises, eglisesFiltrees, egliseSelectionnee, recherche, set
   const [filtreDiocese, setFiltreDiocese] = useState('')
   const [filtreClient, setFiltreClient]   = useState('')
 
-  const diocesesOptions = [...new Set(eglises.map(e => e.clients?.dioceses?.nom).filter(Boolean))].sort()
+  const nomDiocese = e => e.dioceses?.nom || e.clients?.dioceses?.nom
+  const diocesesOptions = [...new Set(eglises.map(nomDiocese).filter(Boolean))].sort()
   const clientsOptions  = [...new Map(
     eglises
-      .filter(e => !filtreDiocese || e.clients?.dioceses?.nom === filtreDiocese)
+      .filter(e => !filtreDiocese || nomDiocese(e) === filtreDiocese)
       .filter(e => e.client_id && e.clients?.nom)
       .map(e => [e.client_id, e.clients.nom])
   ).entries()].sort((a, b) => a[1].localeCompare(b[1], 'fr'))
 
   const liste = eglisesFiltrees
-    .filter(e => !filtreDiocese || e.clients?.dioceses?.nom === filtreDiocese)
+    .filter(e => !filtreDiocese || nomDiocese(e) === filtreDiocese)
     .filter(e => !filtreClient  || String(e.client_id) === filtreClient)
 
   return (
@@ -434,10 +435,11 @@ function VueStats({ eglises, stats, chargement, onEditer, onChangerStatut, onAjo
   const [filtreDiocese, setFiltreDiocese] = useState('')
   const [filtreClient, setFiltreClient]   = useState('')
 
-  const diocesesOptions = [...new Set(eglises.map(e => e.clients?.dioceses?.nom).filter(Boolean))].sort()
+  const nomDiocese = e => e.dioceses?.nom || e.clients?.dioceses?.nom
+  const diocesesOptions = [...new Set(eglises.map(nomDiocese).filter(Boolean))].sort()
   const clientsOptions  = [...new Map(
     eglises
-      .filter(e => !filtreDiocese || e.clients?.dioceses?.nom === filtreDiocese)
+      .filter(e => !filtreDiocese || nomDiocese(e) === filtreDiocese)
       .filter(e => e.client_id && e.clients?.nom)
       .map(e => [e.client_id, e.clients.nom])
   ).entries()].sort((a, b) => a[1].localeCompare(b[1], 'fr'))
@@ -448,7 +450,7 @@ function VueStats({ eglises, stats, chargement, onEditer, onChangerStatut, onAjo
       e.nom.toLowerCase().includes(recherche.toLowerCase()) ||
       (e.ville || '').toLowerCase().includes(recherche.toLowerCase())
     )
-    .filter(e => !filtreDiocese || e.clients?.dioceses?.nom === filtreDiocese)
+    .filter(e => !filtreDiocese || nomDiocese(e) === filtreDiocese)
     .filter(e => !filtreClient  || String(e.client_id) === filtreClient)
 
   return (
@@ -548,8 +550,8 @@ function LigneStats({ eglise, stat, onEditer, onChangerStatut, role }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 600, fontSize: 14, color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{eglise.nom}</div>
           <div style={{ fontSize: 12, color: C.texteSecondaire, marginTop: 2 }}>{eglise.ville} · {eglise.type}</div>
-          {eglise.clients?.dioceses?.nom && (
-            <div style={{ fontSize: 11, color: '#A8A29E', marginTop: 1 }}>{eglise.clients.dioceses.nom}</div>
+          {(eglise.dioceses?.nom || eglise.clients?.dioceses?.nom) && (
+            <div style={{ fontSize: 11, color: '#A8A29E', marginTop: 1 }}>{eglise.dioceses?.nom || eglise.clients?.dioceses?.nom}</div>
           )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0 }}>

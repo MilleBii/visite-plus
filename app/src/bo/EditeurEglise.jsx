@@ -112,6 +112,8 @@ export default function EditeurEglise({ egliseId, onRetour }) {
       .then(({ data }) => setDioceses(data || []))
   }, [])
 
+  const [clientNom, setClientNom] = useState(null)
+
   const [form, setForm] = useState({
     nom: '',
     type: 'église',
@@ -132,6 +134,7 @@ export default function EditeurEglise({ egliseId, onRetour }) {
 
   const slugEstAuto = useRef(!egliseId)
   const [slugEtat, setSlugEtat] = useState(null) // null | 'checking' | 'ok' | 'pris' | 'invalide'
+  const formSauvegarde = useRef(null)
 
   // Auto-génération du slug depuis nom + ville
   useEffect(() => {
@@ -226,7 +229,7 @@ export default function EditeurEglise({ egliseId, onRetour }) {
     const [{ data, error }, { data: poisRows, error: poisErr }, { count: eventsCount }] = await Promise.all([
       supabase
         .from('eglises')
-        .select('*')
+        .select('*, clients(nom)')
         .eq('id', id)
         .single(),
       supabase
@@ -242,7 +245,8 @@ export default function EditeurEglise({ egliseId, onRetour }) {
     if (error) {
       setErreur(error.message)
     } else if (data) {
-      setForm({
+      setClientNom(data.clients?.nom || null)
+      const formCharge = {
         nom: data.nom || '',
         type: data.type || 'église',
         ville: data.ville || '',
@@ -257,7 +261,9 @@ export default function EditeurEglise({ egliseId, onRetour }) {
         google_calendar_evenements_id: data.google_calendar_evenements_id || '',
         slug: data.slug || '',
         statut: data.statut || 'brouillon',
-      })
+      }
+      setForm(formCharge)
+      formSauvegarde.current = formCharge
 
       const poisList = Array.isArray(poisRows) && !poisErr ? poisRows : []
       const poiIndex = Object.fromEntries(poisList.map(p => [String(p.id), p.titre || `POI ${p.id}`]))
@@ -355,6 +361,25 @@ export default function EditeurEglise({ egliseId, onRetour }) {
     setForm(f => ({ ...f, [cle]: valeur }))
   }
 
+  const aDesModifs = etape === 'edition' && (
+    formSauvegarde.current === null
+      ? form.nom.trim() !== ''
+      : JSON.stringify(form) !== JSON.stringify(formSauvegarde.current)
+  )
+
+  useEffect(() => {
+    if (!aDesModifs) return
+    function beforeUnload(e) { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', beforeUnload)
+    return () => window.removeEventListener('beforeunload', beforeUnload)
+  }, [aDesModifs])
+
+  function confirmerRetour() {
+    if (!aDesModifs || window.confirm('Vous avez des modifications non sauvegardées.\nQuitter sans enregistrer ?')) {
+      onRetour()
+    }
+  }
+
   async function sauvegarder(publier = false) {
     const manquants = []
     if (!form.nom.trim())             manquants.push('Nom')
@@ -394,6 +419,7 @@ export default function EditeurEglise({ egliseId, onRetour }) {
     } else {
       if (!egliseSelectionnee && retour?.id) setEgliseSelectionnee(retour.id)
       if (publier) champ('statut', 'publié')
+      formSauvegarde.current = { ...form, statut: publier ? 'publié' : form.statut }
       setSucces(true)
       setTimeout(() => setSucces(false), 2500)
     }
@@ -448,7 +474,7 @@ export default function EditeurEglise({ egliseId, onRetour }) {
   if (etape === 'recherche') {
     return (
       <div style={{ minHeight: '100vh', background: C.bg, fontFamily: 'system-ui, -apple-system, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0 }}>
-        <button onClick={onRetour} style={{ position: 'absolute', top: 20, left: 20, background: 'none', border: 'none', color: C.texteSecondaire, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <button onClick={confirmerRetour} style={{ position: 'absolute', top: 20, left: 20, background: 'none', border: 'none', color: C.texteSecondaire, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
           ← Retour
         </button>
         <div style={{ background: C.blanc, borderRadius: 12, border: `1px solid ${C.bordure}`, padding: '40px 36px', width: 480, boxShadow: '0 4px 24px rgba(0,0,0,0.07)' }}>
@@ -565,13 +591,22 @@ export default function EditeurEglise({ egliseId, onRetour }) {
       {/* Header */}
       <div style={{ background: C.primaire, color: '#fff', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 56 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
-          <button onClick={onRetour} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 18, padding: '0 4px', lineHeight: 1 }}>←</button>
-          <button onClick={onRetour} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 14, padding: 0, textDecoration: 'underline' }}>Tableau de bord</button>
+          <button onClick={confirmerRetour} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 18, padding: '0 4px', lineHeight: 1 }}>←</button>
+          <button onClick={confirmerRetour} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 14, padding: 0, textDecoration: 'underline' }}>Tableau de bord</button>
           <span style={{ color: 'rgba(255,255,255,0.4)' }}>/</span>
+          {clientNom && (
+            <>
+              <span style={{ color: 'rgba(255,255,255,0.65)' }}>{clientNom}</span>
+              <span style={{ color: 'rgba(255,255,255,0.4)' }}>/</span>
+            </>
+          )}
           <span style={{ fontWeight: 600 }}>{form.nom || 'Nouvelle église'}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Badge statut={form.statut} />
+          {aDesModifs && !succes && (
+            <span style={{ fontSize: 12, color: '#FCD34D', fontWeight: 500 }}>● Non sauvegardé</span>
+          )}
           {succes && <span style={{ color: '#6EE7B7', fontSize: 13, fontWeight: 500 }}>✓ Enregistré</span>}
           {onglet === 'qrcode' && (
             <BoutonHeader onClick={() => window.print()} variante="secondaire">

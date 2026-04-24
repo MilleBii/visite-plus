@@ -121,6 +121,10 @@ class _AccueilScreenState extends State<AccueilScreen> {
                 ? CachedNetworkImage(
                     imageUrl: eglise.photoFacade!,
                     fit: BoxFit.cover,
+                    alignment: Alignment(
+                      (eglise.photoFacadeX / 100.0) * 2 - 1,
+                      (eglise.photoFacadeY / 100.0) * 2 - 1,
+                    ),
                     placeholder: (_, __) => Container(color: const Color(0xFF292524)),
                     errorWidget: (_, __, ___) => Container(color: const Color(0xFF292524)),
                   )
