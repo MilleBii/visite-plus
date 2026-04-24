@@ -105,10 +105,18 @@ export default function EditeurEglise({ egliseId, onRetour }) {
     topPois: [],
   })
 
+  const [dioceses, setDioceses] = useState([])
+
+  useEffect(() => {
+    supabase.from('dioceses').select('id, nom, region').order('region').order('nom')
+      .then(({ data }) => setDioceses(data || []))
+  }, [])
+
   const [form, setForm] = useState({
     nom: '',
     type: 'église',
     ville: '',
+    diocese_id: '',
     lat: '',
     lon: '',
     message_bienvenue: 'Croyant ou non, bienvenue dans cette église !',
@@ -236,6 +244,7 @@ export default function EditeurEglise({ egliseId, onRetour }) {
         nom: data.nom || '',
         type: data.type || 'église',
         ville: data.ville || '',
+        diocese_id: data.diocese_id ?? '',
         lat: data.position?.[0] ?? '',
         lon: data.position?.[1] ?? '',
         message_bienvenue: data.message_bienvenue || '',
@@ -343,12 +352,25 @@ export default function EditeurEglise({ egliseId, onRetour }) {
   }
 
   async function sauvegarder(publier = false) {
+    const manquants = []
+    if (!form.nom.trim())             manquants.push('Nom')
+    if (!form.ville.trim())           manquants.push('Ville')
+    if (!form.diocese_id)             manquants.push('Diocèse')
+    if (!form.slug.trim())            manquants.push('Slug URL')
+    if (form.lat === '' || isNaN(parseFloat(form.lat))) manquants.push('Latitude')
+    if (form.lon === '' || isNaN(parseFloat(form.lon))) manquants.push('Longitude')
+    if (!form.message_bienvenue.trim()) manquants.push('Message de bienvenue')
+    if (manquants.length > 0) {
+      setErreur(`Champs obligatoires manquants : ${manquants.join(', ')}.`)
+      return
+    }
     setSauvegarde(true)
     setErreur(null)
     const donnees = {
       nom: form.nom,
       type: form.type,
       ville: form.ville,
+      diocese_id: form.diocese_id ? parseInt(form.diocese_id, 10) : null,
       position: [parseFloat(form.lat), parseFloat(form.lon)],
       message_bienvenue: form.message_bienvenue,
       photo_facade: form.photo_facade,
@@ -602,6 +624,7 @@ export default function EditeurEglise({ egliseId, onRetour }) {
           <OngletInformations
             form={form}
             onChange={champ}
+            dioceses={dioceses}
             onRechercherPhoto={rechercherPhotoWikimedia}
             recherchePhoto={recherchePhoto}
             slugEtat={slugEtat}
@@ -652,7 +675,7 @@ async function resoudreUrlPhoto(url) {
   return pages[0]?.imageinfo?.[0]?.url || url
 }
 
-function OngletInformations({ form, onChange, onRechercherPhoto, recherchePhoto, slugEtat, onSlugChange, onUploadPhoto, uploadPhoto }) {
+function OngletInformations({ form, onChange, dioceses, onRechercherPhoto, recherchePhoto, slugEtat, onSlugChange, onUploadPhoto, uploadPhoto }) {
   const inputFichierRef = useRef(null)
   const [saisieUrl, setSaisieUrl] = useState(false)
   const [resolutionUrl, setResolutionUrl] = useState(false)
@@ -680,11 +703,11 @@ function OngletInformations({ form, onChange, onRechercherPhoto, recherchePhoto,
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
         <Carte titre="Identité">
-          <Champ label="Nom de l'église">
+          <Champ label="Nom de l'église" requis>
             <Input valeur={form.nom} onChange={v => onChange('nom', v)} placeholder="Ex : Église Saint-Sulpice" />
           </Champ>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <Champ label="Type">
+            <Champ label="Type" requis>
               <Select valeur={form.type} onChange={v => onChange('type', v)} options={[
                 { value: 'église', label: 'Église' },
                 { value: 'basilique', label: 'Basilique' },
@@ -692,11 +715,18 @@ function OngletInformations({ form, onChange, onRechercherPhoto, recherchePhoto,
                 { value: 'cathédrale', label: 'Cathédrale' },
               ]} />
             </Champ>
-            <Champ label="Ville">
+            <Champ label="Ville" requis>
               <Input valeur={form.ville} onChange={v => onChange('ville', v)} placeholder="Ex : Paris" />
             </Champ>
           </div>
-          <Champ label="Slug URL" hint={`visite-plus.fr/eglise/${form.slug || '{slug}'}`}>
+          <Champ label="Diocèse" requis>
+            <SelectDiocese
+              valeur={form.diocese_id}
+              onChange={v => onChange('diocese_id', v)}
+              dioceses={dioceses}
+            />
+          </Champ>
+          <Champ label="Slug URL" requis hint={`visite-plus.fr/eglise/${form.slug || '{slug}'}`}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Input valeur={form.slug} onChange={onSlugChange} placeholder="ex : saint-sulpice-paris" />
               {slugIndicateur && (
@@ -710,10 +740,10 @@ function OngletInformations({ form, onChange, onRechercherPhoto, recherchePhoto,
 
         <Carte titre="Localisation">
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <Champ label="Latitude">
+            <Champ label="Latitude" requis>
               <Input valeur={form.lat} onChange={v => onChange('lat', v)} placeholder="Ex : 48.8502" type="number" />
             </Champ>
-            <Champ label="Longitude">
+            <Champ label="Longitude" requis>
               <Input valeur={form.lon} onChange={v => onChange('lon', v)} placeholder="Ex : 2.3348" type="number" />
             </Champ>
           </div>
@@ -723,7 +753,7 @@ function OngletInformations({ form, onChange, onRechercherPhoto, recherchePhoto,
         </Carte>
 
         <Carte titre="Contenu">
-          <Champ label="Message de bienvenue">
+          <Champ label="Message de bienvenue" requis>
             <Textarea valeur={form.message_bienvenue} onChange={v => onChange('message_bienvenue', v)} rows={3} />
           </Champ>
         </Carte>
@@ -1176,6 +1206,37 @@ function OngletQRCode({ nom, ville, slug, photoFacade, egliseId }) {
 
 // ─── Composants UI ────────────────────────────────────────────────────────────
 
+function SelectDiocese({ valeur, onChange, dioceses }) {
+  const parRegion = dioceses.reduce((acc, d) => {
+    const r = d.region || 'Autre'
+    if (!acc[r]) acc[r] = []
+    acc[r].push(d)
+    return acc
+  }, {})
+
+  return (
+    <select
+      required
+      value={valeur}
+      onChange={e => onChange(e.target.value)}
+      style={{
+        width: '100%', padding: '8px 10px', borderRadius: 6,
+        border: `1px solid ${valeur ? C.bordure : C.danger}`, fontSize: 14,
+        outline: 'none', background: C.blanc, boxSizing: 'border-box', color: valeur ? '#111827' : C.texteSecondaire,
+      }}
+    >
+      <option value="">— Sélectionner un diocèse —</option>
+      {Object.entries(parRegion).map(([region, items]) => (
+        <optgroup key={region} label={region}>
+          {items.map(d => (
+            <option key={d.id} value={d.id}>{d.nom}</option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
+  )
+}
+
 function Carte({ titre, children }) {
   return (
     <div style={{ background: C.blanc, borderRadius: 10, border: `1px solid ${C.bordure}`, padding: 20 }}>
@@ -1187,10 +1248,12 @@ function Carte({ titre, children }) {
   )
 }
 
-function Champ({ label, hint, children }) {
+function Champ({ label, hint, requis, children }) {
   return (
     <div>
-      <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 5 }}>{label}</label>
+      <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 5 }}>
+        {label}{requis && <span style={{ color: C.danger, marginLeft: 3 }}>*</span>}
+      </label>
       {children}
       {hint && <p style={{ margin: '4px 0 0', fontSize: 11, color: C.texteSecondaire }}>{hint}</p>}
     </div>

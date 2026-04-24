@@ -355,34 +355,34 @@ function VueCarte({ eglises, eglisesFiltrees, egliseSelectionnee, recherche, set
   return (
     <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
       <div style={{ width: 380, flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: `1px solid ${C.bordure}`, background: C.blanc }}>
-        <div style={{ padding: 16, borderBottom: `1px solid ${C.bordure}` }}>
+        {['super_admin', 'editeur_1visible'].includes(role) && (
+          <div style={{ padding: '8px 12px', borderBottom: `1px solid ${C.bordure}`, display: 'flex', gap: 8 }}>
+            <select value={filtreDiocese} onChange={e => { setFiltreDiocese(e.target.value); setFiltreClient('') }} style={{ ...S_FILTRE, flex: 1, minWidth: 0 }}>
+              <option value="">Diocèse</option>
+              {diocesesOptions.map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+            <select value={filtreClient} onChange={e => setFiltreClient(e.target.value)} style={{ ...S_FILTRE, flex: 1, minWidth: 0 }}>
+              <option value="">Client</option>
+              {clientsOptions.map(([id, n]) => <option key={id} value={String(id)}>{n}</option>)}
+            </select>
+          </div>
+        )}
+        <div style={{ padding: '8px 12px', borderBottom: `1px solid ${C.bordure}` }}>
           <input
             value={recherche} onChange={e => setRecherche(e.target.value)}
             placeholder="Rechercher une église…"
             style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.bordure}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', background: C.bg }}
           />
         </div>
-        <div style={{ padding: '8px 16px', borderBottom: `1px solid ${C.bordure}`, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 12, color: C.texteSecondaire, marginRight: 'auto' }}>
+        <div style={{ padding: '8px 12px', borderBottom: `1px solid ${C.bordure}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 12, color: C.texteSecondaire }}>
             {chargement ? 'Chargement…' : `${liste.length} église${liste.length > 1 ? 's' : ''}`}
           </span>
-          {['super_admin', 'editeur_1visible'].includes(role) && (<>
-            <select value={filtreDiocese} onChange={e => { setFiltreDiocese(e.target.value); setFiltreClient('') }} style={S_FILTRE}>
-              <option value="">Tous les diocèses</option>
-              {diocesesOptions.map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
-            <select value={filtreClient} onChange={e => setFiltreClient(e.target.value)} style={S_FILTRE}>
-              <option value="">Tous les clients</option>
-              {clientsOptions.map(([id, n]) => <option key={id} value={String(id)}>{n}</option>)}
-            </select>
-          </>)}
           {role === 'super_admin' && (
             <button onClick={onAjouter} style={{
               background: C.primaire, color: '#fff', border: 'none', borderRadius: 6,
               padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-            }}>
-              + Ajouter
-            </button>
+            }}>+ Ajouter</button>
           )}
         </div>
         <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -455,46 +455,50 @@ function VueStats({ eglises, stats, chargement, onEditer, onChangerStatut, onAjo
     <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ display: 'flex', borderBottom: `1px solid ${C.bordure}`, background: C.blanc, flexShrink: 0 }}>
-          <div style={{ width: 380, flexShrink: 0, padding: 16, borderRight: `1px solid ${C.bordure}` }}>
-            <input
-              value={recherche} onChange={e => setRecherche(e.target.value)}
-              placeholder="Rechercher une église…"
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.bordure}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', background: C.bg }}
-            />
-          </div>
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '0 32px', gap: 32 }}>
-            <ColHeader label="Visites" sub="28 derniers jours" />
-            {TYPES_POI.map(t => (
-              <ColHeader key={t} label={`${typeConfig[t].icon} ${typeConfig[t].label}`} sub="28 derniers jours" />
-            ))}
-          </div>
-        </div>
-        <div style={{ display: 'flex', borderBottom: `1px solid ${C.bordure}`, background: C.blanc, flexShrink: 0 }}>
-          <div style={{ width: 380, flexShrink: 0, padding: '8px 16px', borderRight: `1px solid ${C.bordure}`, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 12, color: C.texteSecondaire, marginRight: 'auto' }}>
-              {chargement ? 'Chargement…' : `${eglisesFiltrees.length} église${eglisesFiltrees.length > 1 ? 's' : ''}`}
-            </span>
-            {['super_admin', 'editeur_1visible'].includes(role) && (<>
-              <select value={filtreDiocese} onChange={e => { setFiltreDiocese(e.target.value); setFiltreClient('') }} style={S_FILTRE}>
-                <option value="">Tous les diocèses</option>
-                {diocesesOptions.map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-              <select value={filtreClient} onChange={e => setFiltreClient(e.target.value)} style={S_FILTRE}>
-                <option value="">Tous les clients</option>
-                {clientsOptions.map(([id, n]) => <option key={id} value={String(id)}>{n}</option>)}
-              </select>
-            </>)}
-            {role === 'super_admin' && (
-              <button onClick={onAjouter} style={{
-                background: C.primaire, color: '#fff', border: 'none', borderRadius: 6,
-                padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              }}>
-                + Ajouter
-              </button>
+          {/* Colonne gauche : filtres + recherche + compte */}
+          <div style={{ width: 380, flexShrink: 0, borderRight: `1px solid ${C.bordure}`, display: 'flex', flexDirection: 'column' }}>
+            {['super_admin', 'editeur_1visible'].includes(role) && (
+              <div style={{ padding: '8px 12px', borderBottom: `1px solid ${C.bordure}`, display: 'flex', gap: 8 }}>
+                <select value={filtreDiocese} onChange={e => { setFiltreDiocese(e.target.value); setFiltreClient('') }} style={{ ...S_FILTRE, flex: 1, minWidth: 0 }}>
+                  <option value="">Diocèse</option>
+                  {diocesesOptions.map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+                <select value={filtreClient} onChange={e => setFiltreClient(e.target.value)} style={{ ...S_FILTRE, flex: 1, minWidth: 0 }}>
+                  <option value="">Client</option>
+                  {clientsOptions.map(([id, n]) => <option key={id} value={String(id)}>{n}</option>)}
+                </select>
+              </div>
             )}
+            <div style={{ padding: '8px 12px', borderBottom: `1px solid ${C.bordure}` }}>
+              <input
+                value={recherche} onChange={e => setRecherche(e.target.value)}
+                placeholder="Rechercher une église…"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.bordure}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', background: C.bg }}
+              />
+            </div>
+            <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 12, color: C.texteSecondaire }}>
+                {chargement ? 'Chargement…' : `${eglisesFiltrees.length} église${eglisesFiltrees.length > 1 ? 's' : ''}`}
+              </span>
+              {role === 'super_admin' && (
+                <button onClick={onAjouter} style={{
+                  background: C.primaire, color: '#fff', border: 'none', borderRadius: 6,
+                  padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                }}>+ Ajouter</button>
+              )}
+            </div>
           </div>
-          <div style={{ flex: 1, padding: '8px 32px' }}>
-            <span style={{ fontSize: 12, color: C.texteSecondaire }}>vs 28 jours précédents</span>
+          {/* Colonne droite : en-têtes colonnes stats */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', alignItems: 'center', padding: '0 32px', gap: 32, borderBottom: `1px solid ${C.bordure}`, height: 48 }}>
+              <ColHeader label="Visites" sub="28 derniers jours" />
+              {TYPES_POI.map(t => (
+                <ColHeader key={t} label={`${typeConfig[t].icon} ${typeConfig[t].label}`} sub="28 derniers jours" />
+              ))}
+            </div>
+            <div style={{ padding: '8px 32px' }}>
+              <span style={{ fontSize: 12, color: C.texteSecondaire }}>vs 28 jours précédents</span>
+            </div>
           </div>
         </div>
         <div style={{ flex: 1, overflowY: 'auto' }}>
