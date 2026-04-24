@@ -32,10 +32,11 @@
 
 | Table | Colonnes clés | Notes |
 | ----- | ------------- | ----- |
-| `clients` | `id`, `nom`, `type`, `statut`, `adresse`, `email_contact`, `logo_url` | type : `diocese \| paroisse \| sanctuaire \| autre` ; statut : `actif \| pause \| archivé` |
+| `dioceses` | `id`, `nom`, `region` | Table de référence — liste des diocèses ; alimentée par seed |
+| `clients` | `id`, `nom`, `type`, `diocese_id` (nullable FK), `statut`, `adresse`, `email_contact`, `logo_url` | type : `diocese \| paroisse \| sanctuaire \| autre` ; statut : `actif \| pause \| archivé` |
 | `user_profiles` | `user_id → auth.users`, `role`, `client_id` (nullable), `prenom`, `nom`, `actif` | `client_id = NULL` pour rôles 1visible |
-| `contrats` | `id`, `client_id`, `montant`, `date_debut`, `date_fin`, `statut` | statut : `actif \| echu \| resilie` |
-| `audit_log` | `id`, `user_id`, `action`, `entity_type`, `entity_id`, `motif`, `metadata JSONB` | append-only |
+| `contrats` | `id`, `client_id`, `montant`, `date_debut`, `date_fin`, `statut` | statut : `actif \| echu \| resilie` — **table créée en BDD, pas d'interface BO en v1** |
+| `audit_log` | `id`, `user_id`, `action`, `entity_type`, `entity_id`, `motif`, `metadata JSONB` | append-only — **version ultérieure, table non créée en v1** |
 
 **Table `eglises` modifiée :**
 - Supprimer `paroisse_id` et `diocese_id` (jamais appliqués)
@@ -99,10 +100,10 @@
 
 | Fichier | Contenu |
 |---------|---------|
-| `001_clients.sql` | Table `clients` + trigger `updated_at` |
+| `001_clients.sql` | Table `dioceses` (référence) + seed des diocèses français, puis table `clients` avec `diocese_id FK` + trigger `updated_at` |
 | `002_user_profiles.sql` | Table `user_profiles` + contraintes CHECK (`client_id NULL` ↔ rôles 1visible) |
 | `003_alter_eglises.sql` | Ajouter `client_id NOT NULL`, ajouter valeurs statut `pause`/`archivé`, trigger machine à états |
-| `004_contrats_audit.sql` | Tables `contrats` et `audit_log` |
+| `004_contrats.sql` | Table `contrats` uniquement (pas d'interface BO — saisie directe par 1visible) |
 | `005_rls.sql` | Helpers `my_role()` / `my_client_id()`, réécriture RLS complet (public + BO) |
 
 **Politiques RLS cibles pour `eglises` (extraites des specs §6.2) :**
@@ -165,10 +166,13 @@ Un composant `DashboardRouter` lit le rôle depuis `AuthContext` et rend la vue 
 | `editeur_client` | Liste simple : les églises qu'il peut éditer (pas de dashboard) |
 
 Menu conditionnel par rôle (spec §5.2) :
-- **super_admin** : Clients · Églises · Utilisateurs · Audit · Facturation
+
+- **super_admin** : Clients · Églises · Utilisateurs
 - **editeur_1visible** : Clients · Églises
-- **admin_client** : Mon espace · Mes églises · Mon équipe · Facturation
+- **admin_client** : Mon espace · Mes églises · Mon équipe
 - **editeur_client** : Mes églises (liste directe, sans menu)
+
+> Facturation et Audit sont hors périmètre v1 (cf. spec §3.4 et §6.3).
 
 ---
 

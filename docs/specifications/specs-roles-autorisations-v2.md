@@ -99,7 +99,7 @@ Un client a :
 | Voir tous les clients    | ✅          | ✅               | ❌           | ❌             |
 | Créer un client          | ✅          | ❌               | ❌           | ❌             |
 | Modifier son client      | ✅          | ✅               | ✅           | ❌             |
-| Archiver un client       | ✅          | ❌               | ❌           | ❌             |
+| Résilier un client       | ✅          | ❌               | ❌           | ❌             |
 | Mettre un client en pause | ✅         | ❌               | ❌           | ❌             |
 
 ### 3.3 Gestion des églises
@@ -120,11 +120,7 @@ Un client a :
 
 ### 3.4 Gestion de la facturation
 
-| Action                     | super_admin | editeur_1visible | admin_client | editeur_client |
-|----------------------------|:-----------:|:----------------:|:------------:|:--------------:|
-| Voir statut abonnement     | ✅          | ❌               | ✅           | ❌             |
-| Générer une facture        | ✅          | ❌               | ❌           | ❌             |
-| Voir historique facturation | ✅         | ❌               | ✅           | ❌             |
+> **Hors périmètre v1.** La table `contrats` est créée en BDD mais il n'y a pas d'interface BO pour gérer ou consulter les contrats. Les entrées sont saisies directement en BDD par 1visible. Prévu en v2.
 
 ---
 
@@ -181,11 +177,11 @@ brouillon ──publier──▶ publié ──dépublier──▶ brouillon
 
 ### 4.3 Statuts d'un client
 
-| Statut    | Conséquence                                                           |
-|-----------|----------------------------------------------------------------------|
-| `actif`   | Églises visibles selon leur statut individuel                        |
-| `pause`   | **Toutes les églises du client sont masquées côté visiteur**, quel que soit leur statut individuel. Les utilisateurs du client ne peuvent plus rien modifier. |
-| `archivé` | Client fermé. Églises archivées automatiquement. Utilisateurs désactivés. |
+| Statut | Conséquence |
+| ------ | ----------- |
+| `actif` | Églises visibles selon leur statut individuel |
+| `pause` | **Toutes les églises du client sont masquées côté visiteur**, quel que soit leur statut individuel. Les utilisateurs du client ne peuvent plus rien modifier. |
+| `résilié` | Contrat terminé définitivement. Églises archivées automatiquement. Utilisateurs désactivés. |
 
 **Propagation de la pause** :
 - Un client en `pause` masque toutes ses églises, sans modifier leur statut individuel.
@@ -227,10 +223,12 @@ Aucune suppression dure. Tout est archivable.
 
 Affiché selon les droits du rôle :
 
-- **super_admin** : Clients · Églises · Utilisateurs · Audit · Facturation
+- **super_admin** : Clients · Églises · Utilisateurs
 - **editeur_1visible** : Clients · Églises
-- **admin_client** : Mon espace · Mes églises · Mon équipe · Facturation
+- **admin_client** : Mon espace · Mes églises · Mon équipe
 - **editeur_client** : Mes églises (pas de menu, juste la liste)
+
+> **Hors périmètre v1 :** "Audit" (audit_log — version ultérieure) et "Facturation" (contrats non gérés en BO) ne figurent pas dans les menus.
 
 ### 5.3 Interface de l'editeur_client
 
@@ -252,9 +250,14 @@ auth.users                  (table Supabase native)
        ├─ prenom, nom
        └─ actif             (boolean — soft-delete)
 
+dioceses                    (table de référence — liste des diocèses français)
+  ├─ id, nom
+  └─ region
+
 clients
   ├─ id, nom
   ├─ type                   ('diocese' | 'paroisse' | 'sanctuaire' | 'autre')
+  ├─ diocese_id             (FK dioceses.id — nullable : certains clients n'appartiennent pas à un diocèse)
   ├─ adresse, telephone, email_contact, logo_url
   └─ statut                 ('actif' | 'pause' | 'archivé')
 
@@ -268,12 +271,12 @@ eglises
 pois
   └─ eglise_id              (FK eglises.id — NOT NULL)
 
-contrats
+contrats                    (table BDD — pas d'interface BO en v1, saisie directe par 1visible)
   ├─ id, client_id (FK)
   ├─ montant, date_debut, date_fin
   └─ statut                 ('actif' | 'echu' | 'resilie')
 
-audit_log
+audit_log                   (version ultérieure — append-only)
   ├─ id, user_id, action
   ├─ entity_type, entity_id
   ├─ motif, created_at
@@ -319,7 +322,7 @@ C'est **une seule règle de jointure**, contre ~18 politiques dans la v1.
 
 ### 6.3 Journalisation
 
-Toute action structurante est tracée dans `audit_log` : création/désactivation user, mise en pause, archivage, transfert d'église, publication.
+> **Version ultérieure.** La table `audit_log` est définie dans le modèle de données (append-only) mais ne sera ni alimentée ni exposée dans le BO en v1. Aucun trigger ni vue à implémenter pour cette version.
 
 ---
 
